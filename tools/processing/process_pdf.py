@@ -6,6 +6,7 @@ import argparse
 import logging
 import os
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 from typing import List
@@ -51,6 +52,9 @@ def download_from_gcs(gcs_path: str, local_path: str) -> str:
     parts = gcs_path.replace("gs://", "").split("/", 1)
     bucket_name = parts[0]
     blob_path = parts[1]
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
     
     client = storage.Client(project=PROJECT_ID)
     bucket = client.bucket(bucket_name)

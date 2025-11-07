@@ -3,15 +3,16 @@ Summarization tool for CENTEF RAG system.
 Reads chunks, generates summary and extracts metadata using Gemini.
 """
 import argparse
+import json
 import logging
 import os
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
+import vertexai
+from vertexai.generative_models import GenerativeModel
 from google.cloud import storage
-# TODO: Import Vertex AI Gemini
-# from vertexai.preview.generative_models import GenerativeModel
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 GENERATION_LOCATION = os.getenv("GENERATION_LOCATION", "us-central1")
 TARGET_BUCKET = os.getenv("TARGET_BUCKET", "centef-rag-chunks")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+SUMMARY_MODEL = os.environ.get("SUMMARY_MODEL", "gemini-2.5-flash")
 
 
 def download_chunks_from_gcs(source_id: str) -> str:
@@ -67,15 +68,19 @@ def summarize_with_gemini(chunks: List[Chunk]) -> Dict[str, Any]:
     """
     logger.info(f"Summarizing {len(chunks)} chunks with Gemini")
     
-    # TODO: Initialize Vertex AI
-    # import vertexai
-    # vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
+    # Initialize Vertex AI
+    vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
     
     # Combine all chunk content
     combined_text = "\n\n".join([
         f"[Chunk {i+1}] {chunk.content}"
         for i, chunk in enumerate(chunks)
     ])
+    
+    # Limit content size to avoid token limits
+    max_chars = 30000
+    if len(combined_text) > max_chars:
+        combined_text = combined_text[:max_chars] + "\n\n[Content truncated...]"
     
     # Build prompt
     prompt = f"""
@@ -84,14 +89,14 @@ Analyze the following document content and provide:
 2. Extracted metadata in JSON format with these fields:
    - author: string or null
    - organization: string or null
-   - date: ISO date string or null
+   - date: ISO date string or null (format: YYYY-MM-DD)
    - publisher: string or null
    - tags: array of relevant topic tags (3-7 tags)
 
 Document content:
-{combined_text[:10000]}  # Limit to first 10k chars for now
+{combined_text}
 
-Respond in JSON format:
+Respond ONLY with valid JSON in this exact format:
 {{
   "summary_text": "...",
   "author": "...",
@@ -102,22 +107,42 @@ Respond in JSON format:
 }}
 """
     
-    # TODO: Call Gemini
-    # model = GenerativeModel("gemini-1.5-flash")
-    # response = model.generate_content(prompt)
-    # result = json.loads(response.text)
-    
-    # Placeholder response
-    logger.warning("Using placeholder Gemini response - implement with Vertex AI")
-    result = {
-        "summary_text": f"This document contains {len(chunks)} sections covering various topics. "
-                       f"(Placeholder summary - integrate Gemini API)",
-        "author": None,
-        "organization": None,
-        "date": None,
-        "publisher": None,
-        "tags": ["placeholder", "needs-gemini"]
-    }
+    try:
+        # Call Gemini
+        model = GenerativeModel(SUMMARY_MODEL)
+        response = model.generate_content(prompt)
+        
+        # Parse JSON response
+        response_text = response.text.strip()
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        result = json.loads(response_text)
+        logger.info("Successfully generated summary with Gemini")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error calling Gemini API: {e}")
+        logger.warning("Falling back to placeholder response")
+        
+        # Fallback placeholder response
+        result = {
+            "summary_text": f"This document contains {len(chunks)} sections covering various topics. "
+                           f"(Placeholder summary - Gemini API call failed: {str(e)})",
+            "author": None,
+            "organization": None,
+            "date": None,
+            "publisher": None,
+            "tags": ["error", "fallback"]
+        }
     
     return result
 

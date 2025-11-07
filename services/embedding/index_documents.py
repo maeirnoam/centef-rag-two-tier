@@ -2,17 +2,17 @@
 Document indexing service for CENTEF RAG system.
 Indexes chunks and summaries into Vertex AI Search datastores.
 """
+import argparse
+import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import List, Dict, Any
 
 from google.cloud import storage
 from google.cloud import discoveryengine_v1beta as discoveryengine
-# TODO: Import proper Discovery Engine client libraries
-# from google.cloud.discoveryengine_v1beta import DocumentServiceClient
-# from google.cloud.discoveryengine_v1beta.types import Document
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -83,49 +83,53 @@ def index_chunks_to_discovery_engine(entry: ManifestEntry) -> None:
     
     logger.info(f"Read {len(chunks)} chunks from {entry.data_path}")
     
-    # TODO: Initialize Discovery Engine client
-    # client = DocumentServiceClient()
+    # Initialize Discovery Engine client
+    client = discoveryengine.DocumentServiceClient()
     
     # Build parent path for datastore
     parent = (
         f"projects/{PROJECT_ID}/"
         f"locations/{VERTEX_SEARCH_LOCATION}/"
         f"collections/default_collection/"
-        f"dataStores/{CHUNKS_DATASTORE_ID}"
+        f"dataStores/{CHUNKS_DATASTORE_ID}/"
+        f"branches/default_branch"
     )
     
     logger.info(f"Indexing to datastore: {parent}")
     
-    # Convert chunks to Discovery Engine format
-    documents = []
-    for chunk in chunks:
-        doc = convert_to_discovery_engine_format(chunk)
-        documents.append(doc)
+    # Convert chunks to Discovery Engine format and create documents individually
+    logger.info(f"Creating {len(chunks)} documents in Discovery Engine")
     
-    # TODO: Import documents using Discovery Engine API
-    # Option 1: Import from GCS JSONL directly
-    # request = discoveryengine.ImportDocumentsRequest(
-    #     parent=parent,
-    #     gcs_source=discoveryengine.GcsSource(
-    #         input_uris=[entry.data_path],
-    #         data_schema="content"
-    #     ),
-    #     reconciliation_mode=discoveryengine.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL
-    # )
-    # operation = client.import_documents(request=request)
-    # response = operation.result()
+    success_count = 0
+    for i, chunk in enumerate(chunks):
+        try:
+            doc_dict = convert_to_discovery_engine_format(chunk)
+            
+            # Create Document object
+            document = discoveryengine.Document(
+                id=doc_dict["id"],
+                json_data=json.dumps(doc_dict.get("jsonData", doc_dict.get("content", {}))),
+            )
+            
+            # Create document request
+            request = discoveryengine.CreateDocumentRequest(
+                parent=parent,
+                document=document,
+                document_id=doc_dict["id"]
+            )
+            
+            # Create the document
+            response = client.create_document(request=request)
+            success_count += 1
+            
+            if (i + 1) % 10 == 0:
+                logger.info(f"Created {i + 1}/{len(chunks)} documents")
+                
+        except Exception as e:
+            logger.warning(f"Failed to create document {i+1}: {e}")
+            continue
     
-    # Option 2: Create documents individually
-    # for doc_dict in documents:
-    #     doc = discoveryengine.Document(**doc_dict)
-    #     request = discoveryengine.CreateDocumentRequest(
-    #         parent=parent,
-    #         document=doc,
-    #         document_id=doc.id
-    #     )
-    #     response = client.create_document(request=request)
-    
-    logger.info(f"Successfully indexed {len(chunks)} chunks (placeholder - implement Discovery Engine API)")
+    logger.info(f"Successfully indexed {success_count}/{len(chunks)} chunks")
 
 
 def index_summaries_to_discovery_engine(entry: ManifestEntry) -> None:
@@ -143,26 +147,46 @@ def index_summaries_to_discovery_engine(entry: ManifestEntry) -> None:
     
     logger.info(f"Read summary from {entry.summary_path}")
     
-    # TODO: Initialize Discovery Engine client
-    # client = DocumentServiceClient()
+    # Initialize Discovery Engine client
+    client = discoveryengine.DocumentServiceClient()
     
     # Build parent path for datastore
     parent = (
         f"projects/{PROJECT_ID}/"
         f"locations/{VERTEX_SEARCH_LOCATION}/"
         f"collections/default_collection/"
-        f"dataStores/{SUMMARIES_DATASTORE_ID}"
+        f"dataStores/{SUMMARIES_DATASTORE_ID}/"
+        f"branches/default_branch"
     )
     
     logger.info(f"Indexing to datastore: {parent}")
     
-    # Convert summary to Discovery Engine format
-    doc = convert_summary_to_discovery_engine_format(summary)
+    # Convert summary to Discovery Engine format and create document
+    logger.info(f"Creating summary document in Discovery Engine")
     
-    # TODO: Import document using Discovery Engine API
-    # Similar to chunks above
-    
-    logger.info(f"Successfully indexed summary (placeholder - implement Discovery Engine API)")
+    try:
+        doc_dict = convert_summary_to_discovery_engine_format(summary)
+        
+        # Create Document object
+        document = discoveryengine.Document(
+            id=doc_dict["id"],
+            json_data=json.dumps(doc_dict.get("jsonData", doc_dict.get("content", {}))),
+        )
+        
+        # Create document request
+        request = discoveryengine.CreateDocumentRequest(
+            parent=parent,
+            document=document,
+            document_id=doc_dict["id"]
+        )
+        
+        # Create the document
+        response = client.create_document(request=request)
+        logger.info(f"Successfully indexed summary")
+        
+    except Exception as e:
+        logger.error(f"Failed to create summary document: {e}")
+        raise
 
 
 def index_document(entry: ManifestEntry) -> None:
@@ -215,8 +239,11 @@ def index_document(entry: ManifestEntry) -> None:
 
 def main():
     """CLI entry point for testing."""
-    import argparse
+    from dotenv import load_dotenv
     from shared.manifest import get_manifest_entry
+    
+    # Load environment variables
+    load_dotenv()
     
     parser = argparse.ArgumentParser(description="Index document into Discovery Engine")
     parser.add_argument("--source-id", required=True, help="Source ID from manifest")

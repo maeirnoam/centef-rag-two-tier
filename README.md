@@ -6,11 +6,19 @@ A Google Cloud-based multimodal retrieval-augmented generation (RAG) platform fo
 
 The CENTEF RAG system provides three coordinated pipelines:
 
-1. **Processing Pipeline**: Converts raw sources (PDF, DOCX, PPTX, SRT, audio, video) into structured chunks and summaries
+1. **Processing Pipeline**: Converts raw sources (PDF, DOCX, PPTX, SRT, images) into structured chunks and summaries
 2. **Embedding Pipeline**: Indexes verified documents into Vertex AI Search datastores
 3. **Search Pipeline**: Retrieves and synthesizes answers using two-tier search (summaries + chunks)
 
-All document lifecycle and metadata is tracked in a central `manifest.jsonl`.
+All document lifecycle and metadata is tracked in a central `manifest.jsonl` stored in GCS.
+
+## Key Features
+
+✅ **PDF Processing**: PyMuPDF-based text extraction with page-level chunking
+✅ **Gemini Integration**: Real AI-powered summarization with metadata extraction
+✅ **Discovery Engine Indexing**: Individual document creation for unstructured datastores
+✅ **Two-Tier Search**: Separate datastores for document summaries and detailed chunks
+✅ **Manifest Tracking**: Complete document lifecycle management in GCS
 
 ## Architecture
 
@@ -45,11 +53,12 @@ centef-rag-new/
 
 - Python 3.10+
 - Google Cloud Project with:
-  - Cloud Storage buckets: `centef-rag-bucket`, `centef-chunk-bucket`
+  - Cloud Storage buckets: `centef-rag-bucket` (sources/manifest), `centef-rag-chunks` (data/summaries)
   - Vertex AI Search app with two datastores:
-    - `centef-chunk-data-store`
-    - `centef-summary-data-store`
+    - Chunks datastore: `centef-chunk-data-store_*_gcs_store`
+    - Summaries datastore: `centef-summaries-datastore_*_gcs_store`
   - Vertex AI API enabled (for Gemini)
+  - Discovery Engine API enabled
 
 ### 2. Environment Configuration
 
@@ -63,7 +72,10 @@ Edit `.env` with your GCP project details:
 - `PROJECT_ID`: Your Google Cloud project ID (e.g., `sylvan-faculty-476113-c9`)
 - `VERTEX_SEARCH_LOCATION`: Region for search (usually `global`)
 - `GENERATION_LOCATION`: Region for Gemini (e.g., `us-central1`)
+- `SUMMARY_MODEL`: Gemini model for summarization (e.g., `gemini-2.5-flash`)
 - Bucket names and datastore IDs from your actual deployment
+- `CHUNKS_DATASTORE_ID`: Full datastore ID including `_gcs_store` suffix
+- `SUMMARIES_DATASTORE_ID`: Full datastore ID including `_gcs_store` suffix
 
 ### 3. Install Dependencies
 
@@ -87,16 +99,44 @@ $env:GOOGLE_APPLICATION_CREDENTIALS="path\to\service-account-key.json"
 
 ## Usage
 
+### Complete Pipeline Example
+
+Here's a full workflow from PDF to searchable document:
+
+```powershell
+# 1. Create manifest entry
+python -c "from shared.manifest import ManifestEntry, create_manifest_entry; entry = ManifestEntry(source_id='my-doc', filename='document.pdf', title='My Document', mimetype='application/pdf', source_uri='gs://centef-rag-bucket/sources/document.pdf'); create_manifest_entry(entry)"
+
+# 2. Process PDF (extract text and create chunks)
+python tools/processing/process_pdf.py --source-id "my-doc" --input "gs://centef-rag-bucket/sources/document.pdf"
+
+# 3. Generate summary with Gemini
+python tools/processing/summarize_chunks.py --source-id "my-doc"
+
+# 4. Approve document
+python -c "from shared.manifest import update_manifest_entry; update_manifest_entry('my-doc', {'approved': True, 'status': 'pending_embedding'})"
+
+# 5. Index to Discovery Engine (with environment variables set)
+$env:PROJECT_ID="your-project-id"
+$env:VERTEX_SEARCH_LOCATION="global"
+$env:CHUNKS_DATASTORE_ID="your-chunks-datastore-id"
+$env:SUMMARIES_DATASTORE_ID="your-summaries-datastore-id"
+$env:TARGET_BUCKET="centef-rag-chunks"
+python services/embedding/index_documents.py --source-id "my-doc"
+```
+
 ### Processing Documents
 
 #### Process a PDF (using PyMuPDF)
 ```powershell
-python tools/processing/process_pdf.py --source-id "doc-123" --input "path/to/document.pdf"
-```
+# First upload to GCS
+gsutil cp document.pdf gs://centef-rag-bucket/sources/
 
-#### Process a DOCX file
-```powershell
-python tools/processing/process_docx.py --source-id "doc-456" --input "path/to/document.docx"
+# Create manifest entry
+python -c "from shared.manifest import ManifestEntry, create_manifest_entry; entry = ManifestEntry(source_id='doc-123', filename='document.pdf', title='Document Title', mimetype='application/pdf', source_uri='gs://centef-rag-bucket/sources/document.pdf'); create_manifest_entry(entry)"
+
+# Process the PDF
+python tools/processing/process_pdf.py --source-id "doc-123" --input "gs://centef-rag-bucket/sources/document.pdf"
 ```
 
 #### Process an image with OCR
