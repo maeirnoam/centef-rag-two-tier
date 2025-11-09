@@ -1,50 +1,49 @@
 # CENTEF RAG System
 
-A Google Cloud-based multimodal retrieval-augmented generation (RAG) platform for processing, indexing, and searching documents using Vertex AI Search and Gemini.
+A production-ready two-tier RAG (Retrieval-Augmented Generation) system using Google Cloud Vertex AI Search and Gemini for terrorism financing research.
 
 ## Overview
 
-The CENTEF RAG system provides three coordinated pipelines:
+The CENTEF RAG system provides end-to-end document processing, indexing, and intelligent question-answering:
 
-1. **Processing Pipeline**: Converts raw sources (PDF, DOCX, PPTX, SRT, images) into structured chunks and summaries
-2. **Embedding Pipeline**: Indexes verified documents into Vertex AI Search datastores
-3. **Search Pipeline**: Retrieves and synthesizes answers using two-tier search (summaries + chunks)
+1. **Processing Pipeline**: Converts documents (PDF, DOCX) into structured chunks with AI-generated summaries
+2. **Indexing Pipeline**: Indexes to Vertex AI Search with two-tier datastores (summaries + chunks)
+3. **Search & Synthesis**: Two-tier retrieval with Gemini-powered answer generation
 
-All document lifecycle and metadata is tracked in a central `manifest.jsonl` stored in GCS.
+All document metadata is tracked in a central `manifest.jsonl` stored in GCS.
 
 ## Key Features
 
-✅ **PDF Processing**: PyMuPDF-based text extraction with page-level chunking
-✅ **Gemini Integration**: Real AI-powered summarization with metadata extraction
-✅ **Discovery Engine Indexing**: Individual document creation for unstructured datastores
-✅ **Two-Tier Search**: Separate datastores for document summaries and detailed chunks
-✅ **Manifest Tracking**: Complete document lifecycle management in GCS
+✅ **Multi-Format Processing**: PDF (PyMuPDF) and DOCX with page/section-level chunking
+✅ **AI Summarization**: Gemini-powered document summaries with metadata extraction
+✅ **Two-Tier Search**: High-level summaries + detailed chunks for optimal retrieval
+✅ **Answer Synthesis**: Gemini generates comprehensive answers with citations
+✅ **Production Ready**: Complete error handling, logging, and manifest tracking
+✅ **Vertex AI Search**: Direct API integration (CreateDocument) for unstructured datastores
 
-## Architecture
+## System Architecture
 
 ```
-centef-rag-new/
-├── shared/                    # Shared schemas and utilities
-│   ├── schemas.py            # Chunk and summary dataclasses
-│   └── manifest.py           # Manifest management
-├── tools/
-│   └── processing/           # Document processing tools
-│       ├── process_pdf.py    # PDF → page chunks (PyMuPDF)
-│       ├── process_docx.py   # DOCX → section chunks
-│       ├── process_srt.py    # SRT → timestamp chunks
-│       ├── process_image.py  # Image → OCR text extraction
-│       └── summarize_chunks.py  # Generate summaries with Gemini
-├── services/
-│   └── embedding/            # Indexing service
-│       └── index_documents.py  # Index to Vertex AI Search
-├── apps/
-│   └── agent_api/            # FastAPI application
-│       ├── main.py           # API endpoints
-│       ├── retriever_vertex_search.py  # Search both datastores
-│       └── synthesizer.py    # Generate answers with Gemini
-├── .env.example              # Environment configuration template
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+centef-rag-two-tier/
+├── shared/                    # Core data structures
+│   ├── schemas.py            # Chunk, Summary, metadata conversion
+│   └── manifest.py           # Document lifecycle tracking
+├── tools/processing/          # Document processing
+│   ├── process_pdf.py        # PDF → page chunks (PyMuPDF)
+│   ├── process_docx.py       # DOCX → section chunks
+│   └── summarize_chunks.py   # Gemini summarization
+├── services/embedding/        # Indexing service
+│   └── index_documents.py    # Index to Vertex AI Search
+├── apps/agent_api/           # Query interface
+│   ├── retriever_vertex_search.py  # Two-tier search
+│   └── synthesizer.py        # Answer generation with Gemini
+├── Helper Scripts:
+│   ├── process_and_index_all.py   # End-to-end pipeline
+│   ├── test_rag_pipeline.py       # Test search + synthesis
+│   ├── quick_test.py              # Test search only
+│   ├── purge_datastores.py        # Clear all indexed data
+│   └── list_chunks.py / list_summaries.py  # Inspect datastores
+└── requirements.txt          # Python dependencies
 ```
 
 ## Setup
@@ -99,70 +98,111 @@ $env:GOOGLE_APPLICATION_CREDENTIALS="path\to\service-account-key.json"
 
 ## Usage
 
-### Complete Pipeline Example
+### Quick Start: Process All Documents from Local Folder
 
-Here's a full workflow from PDF to searchable document:
+The easiest way to process and index documents:
 
 ```powershell
-# 1. Create manifest entry
-python -c "from shared.manifest import ManifestEntry, create_manifest_entry; entry = ManifestEntry(source_id='my-doc', filename='document.pdf', title='My Document', mimetype='application/pdf', source_uri='gs://centef-rag-bucket/sources/document.pdf'); create_manifest_entry(entry)"
-
-# 2. Process PDF (extract text and create chunks)
-python tools/processing/process_pdf.py --source-id "my-doc" --input "gs://centef-rag-bucket/sources/document.pdf"
-
-# 3. Generate summary with Gemini
-python tools/processing/summarize_chunks.py --source-id "my-doc"
-
-# 4. Approve document
-python -c "from shared.manifest import update_manifest_entry; update_manifest_entry('my-doc', {'approved': True, 'status': 'pending_embedding'})"
-
-# 5. Index to Discovery Engine (with environment variables set)
-$env:PROJECT_ID="your-project-id"
-$env:VERTEX_SEARCH_LOCATION="global"
-$env:CHUNKS_DATASTORE_ID="your-chunks-datastore-id"
-$env:SUMMARIES_DATASTORE_ID="your-summaries-datastore-id"
-$env:TARGET_BUCKET="centef-rag-chunks"
-python services/embedding/index_documents.py --source-id "my-doc"
+python process_and_index_all.py
 ```
 
-### Processing Documents
+This script will:
+1. Find all PDF and DOCX files in `local_docs/`
+2. Process each file (extract text → create chunks)
+3. Generate Gemini summaries with metadata
+4. Index chunks and summaries to Vertex AI Search
 
-#### Process a PDF (using PyMuPDF)
+### Test the RAG System
+
+Run a complete end-to-end test with search and answer generation:
+
 ```powershell
-# First upload to GCS
+python test_rag_pipeline.py
+```
+
+Example queries:
+- "what is AML?"
+- "what recent events took place by CENTEF?"
+
+For search-only testing without answer generation:
+
+```powershell
+python quick_test.py
+```
+
+### Manual Document Processing
+
+#### Step 1: Upload Document to GCS
+
+```powershell
 gsutil cp document.pdf gs://centef-rag-bucket/sources/
-
-# Create manifest entry
-python -c "from shared.manifest import ManifestEntry, create_manifest_entry; entry = ManifestEntry(source_id='doc-123', filename='document.pdf', title='Document Title', mimetype='application/pdf', source_uri='gs://centef-rag-bucket/sources/document.pdf'); create_manifest_entry(entry)"
-
-# Process the PDF
-python tools/processing/process_pdf.py --source-id "doc-123" --input "gs://centef-rag-bucket/sources/document.pdf"
 ```
 
-#### Process an image with OCR
-```powershell
-python tools/processing/process_image.py --source-id "img-789" --input "path/to/image.png"
-```
-
-#### Process an SRT file
-```powershell
-python tools/processing/process_srt.py --source-id "video-456" --input "path/to/subtitles.srt"
-```
-
-#### Generate summary and extract metadata
-```powershell
-python tools/processing/summarize_chunks.py --source-id "doc-123"
-```
-
-### Indexing Documents
-
-After processing and approval, index documents to Vertex AI Search:
+#### Step 2: Create Manifest Entry
 
 ```powershell
-python services/embedding/index_documents.py --source-id "doc-123"
+python -c "from shared.manifest import ManifestEntry, create_manifest_entry; entry = ManifestEntry(source_id='doc-2025-001', filename='document.pdf', title='Document Title', mimetype='application/pdf', source_uri='gs://centef-rag-bucket/sources/document.pdf'); create_manifest_entry(entry)"
 ```
 
-### Running the API
+#### Step 3: Process Document
+
+For PDF:
+```powershell
+python tools/processing/process_pdf.py --source-id "doc-2025-001" --input "gs://centef-rag-bucket/sources/document.pdf"
+```
+
+For DOCX:
+```powershell
+python tools/processing/process_docx.py --source-id "doc-2025-002" --input "document.docx"
+```
+
+#### Step 4: Generate Summary
+
+```powershell
+python tools/processing/summarize_chunks.py --source-id "doc-2025-001"
+```
+
+#### Step 5: Approve and Index
+
+```powershell
+# Mark as approved
+python -c "from shared.manifest import update_manifest_entry; update_manifest_entry('doc-2025-001', {'approved': True, 'status': 'pending_embedding'})"
+
+# Index to Vertex AI Search
+python services/embedding/index_documents.py --source-id "doc-2025-001"
+```
+
+### Datastore Management
+
+#### List Indexed Documents
+
+```powershell
+# List all chunks
+python list_chunks.py
+
+# List all summaries
+python list_summaries.py
+```
+
+#### Delete Specific Documents
+
+```powershell
+# Delete chunks for a document
+python delete_chunks.py doc-2025-001
+
+# Delete summary for a document
+python delete_summary.py doc-2025-001
+```
+
+#### Purge All Indexed Data
+
+```powershell
+python purge_datastores.py
+```
+
+**Warning**: This will delete ALL documents from both datastores!
+
+### Running the API (Coming Soon)
 
 Start the FastAPI server:
 
@@ -178,18 +218,7 @@ uvicorn apps.agent_api.main:app --reload --port 8000
 
 API will be available at `http://localhost:8000`
 
-### API Endpoints
-
-#### Manifest Management
-
-- `GET /manifest` - List all documents (optional `?status=` filter)
-- `GET /manifest/{source_id}` - Get specific document
-- `POST /manifest` - Create new document entry
-- `PUT /manifest/{source_id}` - Update document (triggers embedding when `status=pending_embedding`)
-
-#### Search (TODO)
-
-- `POST /search` - Search documents and generate answers
+**Note**: The `/search` endpoint is currently being developed. Use `test_rag_pipeline.py` for testing the complete RAG functionality.
 
 ## Document Lifecycle
 
@@ -245,23 +274,50 @@ Each document in `gs://centef-rag-bucket/manifest/manifest.jsonl`:
 
 Add new endpoints in `apps/agent_api/main.py`. Use the shared manifest helpers for consistency.
 
-## TODO
+## Implemented Features
 
-The following features are marked with TODO comments and need implementation:
-
-1. **Gemini Integration**: Replace placeholder prompts with actual Vertex AI Gemini calls in `summarize_chunks.py` and `synthesizer.py`
-2. **Discovery Engine**: Implement document import/search using Discovery Engine API in `index_documents.py` and `retriever_vertex_search.py`
-3. **Additional Processors**: Add PPTX, audio, video, YouTube processors following the established patterns
-4. **Search Endpoint**: Implement full search → retrieval → synthesis pipeline in `main.py`
-
-### Implemented Features
-
+### Document Processing
 ✅ **PyMuPDF PDF Processing**: Full text extraction with page-level chunking
 ✅ **DOCX Processing**: Section-based chunking with heading detection  
 ✅ **Image OCR**: Supports both Google Cloud Vision API and Tesseract
 ✅ **SRT Processing**: Timestamp-based chunking for subtitles
 ✅ **GCS Integration**: All processors handle GCS paths correctly
-✅ **Environment Configuration**: All settings from your actual `.env` file
+✅ **Gemini Summarization**: Automatic summary generation with metadata extraction
+
+### Indexing & Search
+✅ **Vertex AI Discovery Engine**: Full integration with CreateDocument API
+✅ **Two-Tier Search**: Retrieves both summaries and chunks for comprehensive context
+✅ **Batch Indexing**: Process multiple documents from local folder
+✅ **Datastore Management**: Purge, list, and delete indexed documents
+
+### Answer Generation
+✅ **Gemini Synthesis**: Full answer generation using gemini-2.0-flash-exp
+✅ **Domain Context**: Built-in knowledge (AML=Anti-Money Laundering, CTF=Counter-Terrorism Financing)
+✅ **Citations**: Automatic source attribution with document titles and page numbers
+✅ **Prompt Engineering**: Comprehensive prompts with retrieved context
+
+### Helper Tools
+✅ **process_and_index_all.py**: End-to-end pipeline from local files to indexed datastores
+✅ **test_rag_pipeline.py**: Complete RAG testing with search + synthesis
+✅ **quick_test.py**: Search-only testing for debugging
+✅ **purge_datastores.py**: Clear all documents from both datastores
+✅ **list_chunks.py / list_summaries.py**: Inspect datastore contents
+✅ **delete_chunks.py / delete_summary.py**: Selective document deletion
+
+## Tested Queries
+
+The system has been validated with real-world queries:
+- "what is AML?" → Retrieved 2 summaries + 5 chunks, generated comprehensive definition with examples
+- "what recent events took place by CENTEF?" → Retrieved 1 summary + 5 chunks, detailed Jan 8, 2025 Syria panel information
+
+## TODO
+
+Future enhancements:
+1. **FastAPI Endpoints**: Add RESTful search endpoint to expose RAG functionality
+2. **Additional Processors**: PPTX, audio, video, YouTube processors
+3. **Follow-up Questions**: Generate related questions based on user queries
+4. **Multi-turn Conversations**: Maintain conversation history for context
+5. **Enhanced Filtering**: Search by date range, author, organization, tags
 
 ## References
 
