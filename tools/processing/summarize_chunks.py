@@ -108,9 +108,20 @@ Respond ONLY with valid JSON in this exact format:
 """
     
     try:
-        # Call Gemini
+        # Call Gemini with generation config to ensure valid JSON
         model = GenerativeModel(SUMMARY_MODEL)
-        response = model.generate_content(prompt)
+        
+        generation_config = {
+            "temperature": 0.2,
+            "top_p": 0.8,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
         
         # Parse JSON response
         response_text = response.text.strip()
@@ -124,10 +135,61 @@ Respond ONLY with valid JSON in this exact format:
             response_text = response_text[:-3]
         response_text = response_text.strip()
         
+        # Try to parse JSON
         result = json.loads(response_text)
         logger.info("Successfully generated summary with Gemini")
         
         return result
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {e}")
+        logger.info(f"Problematic response text: {response_text[:500]}...")
+        
+        # Try to extract JSON using regex as fallback
+        import re
+        try:
+            # Look for JSON object pattern
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group(0))
+                logger.info("Successfully extracted JSON using regex fallback")
+                return result
+        except Exception as regex_err:
+            logger.error(f"Regex fallback also failed: {regex_err}")
+        
+        # Try simplified prompt as last resort
+        logger.warning("Attempting retry with simplified prompt")
+        try:
+            simplified_prompt = f"""
+Summarize this document in 2-3 paragraphs. Then extract: author name, organization, date (YYYY-MM-DD), publisher, and 3-7 topic tags.
+
+Content:
+{combined_text[:20000]}
+
+Return ONLY valid JSON with no markdown formatting:
+{{"summary_text": "summary here", "author": "name or null", "organization": "org or null", "date": "YYYY-MM-DD or null", "publisher": "publisher or null", "tags": ["tag1", "tag2"]}}
+"""
+            
+            retry_response = model.generate_content(
+                simplified_prompt,
+                generation_config=generation_config
+            )
+            
+            retry_text = retry_response.text.strip()
+            # Clean markdown
+            if retry_text.startswith("```"):
+                retry_text = re.sub(r'^```(?:json)?\s*', '', retry_text)
+                retry_text = re.sub(r'```\s*$', '', retry_text)
+            retry_text = retry_text.strip()
+            
+            result = json.loads(retry_text)
+            logger.info("Successfully generated summary with simplified prompt")
+            return result
+            
+        except Exception as retry_err:
+            logger.error(f"Retry with simplified prompt failed: {retry_err}")
+        
+        logger.warning("All parsing attempts failed, using placeholder")
         
     except Exception as e:
         logger.error(f"Error calling Gemini API: {e}")

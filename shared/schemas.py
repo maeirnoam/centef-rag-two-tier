@@ -18,6 +18,54 @@ PROJECT_ID = os.getenv("PROJECT_ID")
 TARGET_BUCKET = os.getenv("TARGET_BUCKET", "centef-rag-chunks")
 
 
+def sanitize_date(date_str: Optional[str]) -> Optional[str]:
+    """
+    Sanitize date strings to handle invalid formats.
+    Converts invalid dates like '2006-00-00' to just the year '2006'.
+    
+    Args:
+        date_str: Date string to sanitize
+        
+    Returns:
+        Sanitized date string or None if invalid
+    """
+    if not date_str:
+        return None
+    
+    # Handle common invalid patterns
+    date_str = str(date_str).strip()
+    
+    # Check for pattern like YYYY-00-00 or YYYY-MM-00
+    if '-00' in date_str:
+        # Extract just the year
+        year = date_str.split('-')[0]
+        if year.isdigit() and len(year) == 4:
+            return year
+        return None
+    
+    # Check for obviously invalid dates
+    try:
+        parts = date_str.split('-')
+        if len(parts) >= 2:
+            year = int(parts[0])
+            month = int(parts[1])
+            if month < 1 or month > 12:
+                # Invalid month, return just year
+                return str(year) if 1900 <= year <= 2100 else None
+        if len(parts) == 3:
+            day = int(parts[2])
+            if day < 1 or day > 31:
+                # Invalid day, return year-month or just year
+                return f"{parts[0]}-{parts[1]}" if 1 <= int(parts[1]) <= 12 else parts[0]
+    except (ValueError, IndexError):
+        # If parsing fails, return as-is if it looks like a year
+        if date_str.isdigit() and len(date_str) == 4:
+            return date_str
+        return None
+    
+    return date_str
+
+
 @dataclass
 class ChunkMetadata:
     """File-level metadata for a chunk."""
@@ -79,7 +127,10 @@ class Chunk:
         if self.metadata.organization:
             result["organization"] = self.metadata.organization
         if self.metadata.date:
-            result["date"] = self.metadata.date
+            # Sanitize date to handle invalid formats like '2006-00-00'
+            sanitized_date = sanitize_date(self.metadata.date)
+            if sanitized_date:
+                result["date"] = sanitized_date
         if self.metadata.publisher:
             result["publisher"] = self.metadata.publisher
         if self.metadata.tags:
@@ -166,7 +217,10 @@ class Summary:
         if self.organization:
             result["organization"] = self.organization
         if self.date:
-            result["date"] = self.date
+            # Sanitize date to handle invalid formats like '2006-00-00'
+            sanitized_date = sanitize_date(self.date)
+            if sanitized_date:
+                result["date"] = sanitized_date
         if self.publisher:
             result["publisher"] = self.publisher
         if self.tags:
@@ -276,44 +330,39 @@ def read_summary_from_jsonl(input_path: str) -> Summary:
 
 def convert_to_discovery_engine_format(chunk: Chunk) -> Dict[str, Any]:
     """
-    Convert a Chunk to Discovery Engine JSONL format.
+    Convert a Chunk to Discovery Engine document format.
+    For direct API usage (not JSONL import).
     
     Args:
         chunk: Chunk object
     
     Returns:
-        Dictionary in Discovery Engine format
+        Dictionary with 'id' and 'jsonData' for Document creation
     """
-    # TODO: Implement proper Discovery Engine schema conversion
-    # This should follow the structData schema requirements
+    # Return document ID and the data to be stored as json_data
+    # The json_data will be accessible as struct_data when querying
     return {
         "id": chunk.metadata.id,
-        "structData": chunk.to_dict(),
-        "content": {
-            "mimeType": "text/plain",
-            "uri": f"gs://centef-chunk-bucket/data/{chunk.metadata.source_id}.jsonl"
-        }
+        "jsonData": chunk.to_dict()
     }
 
 
 def convert_summary_to_discovery_engine_format(summary: Summary) -> Dict[str, Any]:
     """
-    Convert a Summary to Discovery Engine JSONL format.
+    Convert a Summary to Discovery Engine document format.
+    For direct API usage (not JSONL import).
     
     Args:
         summary: Summary object
     
     Returns:
-        Dictionary in Discovery Engine format
+        Dictionary with 'id' and 'jsonData' for Document creation
     """
-    # TODO: Implement proper Discovery Engine schema conversion
+    # Return document ID and the data to be stored as json_data
+    # The json_data will be accessible as struct_data when querying
     return {
         "id": summary.source_id,
-        "structData": summary.to_dict(),
-        "content": {
-            "mimeType": "text/plain",
-            "uri": f"gs://{TARGET_BUCKET}/summaries/{summary.source_id}.jsonl"
-        }
+        "jsonData": summary.to_dict()
     }
 
 

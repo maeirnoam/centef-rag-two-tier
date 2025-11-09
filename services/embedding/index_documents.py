@@ -11,8 +11,12 @@ import tempfile
 from pathlib import Path
 from typing import List, Dict, Any
 
+from dotenv import load_dotenv
 from google.cloud import storage
 from google.cloud import discoveryengine_v1beta as discoveryengine
+
+# Load environment variables first
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -68,12 +72,21 @@ def download_from_gcs(gcs_path: str) -> str:
     return local_path
 
 
-def index_chunks_to_discovery_engine(entry: ManifestEntry) -> None:
+def index_chunks_to_discovery_engine(entry: ManifestEntry) -> Dict[str, Any]:
     """
     Index chunks into Vertex AI Search chunk datastore.
     
     Args:
         entry: ManifestEntry with data_path to chunks
+        
+    Returns:
+        Dict with statistics: {
+            "total": int,
+            "success": int,
+            "failed": int,
+            "failed_ids": List[str],
+            "errors": List[str]
+        }
     """
     logger.info(f"Indexing chunks for source_id={entry.source_id}")
     
@@ -100,14 +113,23 @@ def index_chunks_to_discovery_engine(entry: ManifestEntry) -> None:
     # Convert chunks to Discovery Engine format and create documents individually
     logger.info(f"Creating {len(chunks)} documents in Discovery Engine")
     
-    success_count = 0
+    # Track results
+    stats = {
+        "total": len(chunks),
+        "success": 0,
+        "failed": 0,
+        "failed_ids": [],
+        "errors": []
+    }
+    
     for i, chunk in enumerate(chunks):
         try:
             doc_dict = convert_to_discovery_engine_format(chunk)
+            doc_id = doc_dict["id"]
             
             # Create Document object
             document = discoveryengine.Document(
-                id=doc_dict["id"],
+                id=doc_id,
                 json_data=json.dumps(doc_dict.get("jsonData", doc_dict.get("content", {}))),
             )
             
@@ -115,29 +137,44 @@ def index_chunks_to_discovery_engine(entry: ManifestEntry) -> None:
             request = discoveryengine.CreateDocumentRequest(
                 parent=parent,
                 document=document,
-                document_id=doc_dict["id"]
+                document_id=doc_id
             )
             
             # Create the document
             response = client.create_document(request=request)
-            success_count += 1
+            stats["success"] += 1
             
             if (i + 1) % 10 == 0:
                 logger.info(f"Created {i + 1}/{len(chunks)} documents")
                 
         except Exception as e:
-            logger.warning(f"Failed to create document {i+1}: {e}")
+            error_msg = f"Failed to create document {doc_id}: {str(e)}"
+            logger.warning(error_msg)
+            stats["failed"] += 1
+            stats["failed_ids"].append(doc_id)
+            stats["errors"].append(error_msg)
             continue
     
-    logger.info(f"Successfully indexed {success_count}/{len(chunks)} chunks")
+    logger.info(f"Chunk indexing complete: {stats['success']}/{stats['total']} succeeded, {stats['failed']} failed")
+    
+    if stats["failed"] > 0:
+        logger.warning(f"Failed chunk IDs: {', '.join(stats['failed_ids'])}")
+    
+    return stats
 
 
-def index_summaries_to_discovery_engine(entry: ManifestEntry) -> None:
+def index_summaries_to_discovery_engine(entry: ManifestEntry) -> Dict[str, Any]:
     """
     Index summary into Vertex AI Search summary datastore.
     
     Args:
         entry: ManifestEntry with summary_path
+        
+    Returns:
+        Dict with statistics: {
+            "success": bool,
+            "error": str or None
+        }
     """
     logger.info(f"Indexing summary for source_id={entry.source_id}")
     
@@ -164,13 +201,24 @@ def index_summaries_to_discovery_engine(entry: ManifestEntry) -> None:
     # Convert summary to Discovery Engine format and create document
     logger.info(f"Creating summary document in Discovery Engine")
     
+    stats = {"success": False, "error": None}
+    
     try:
         doc_dict = convert_summary_to_discovery_engine_format(summary)
+        
+        # Get the JSON data
+        json_content = doc_dict.get("jsonData", doc_dict.get("content", {}))
+        logger.info(f"JSON content type: {type(json_content)}")
+        logger.info(f"JSON content keys: {json_content.keys() if isinstance(json_content, dict) else 'not a dict'}")
+        
+        # Convert to JSON string
+        json_string = json.dumps(json_content)
+        logger.info(f"JSON string length: {len(json_string)}, starts with: {json_string[:100]}")
         
         # Create Document object
         document = discoveryengine.Document(
             id=doc_dict["id"],
-            json_data=json.dumps(doc_dict.get("jsonData", doc_dict.get("content", {}))),
+            json_data=json_string,
         )
         
         # Create document request
@@ -183,20 +231,41 @@ def index_summaries_to_discovery_engine(entry: ManifestEntry) -> None:
         # Create the document
         response = client.create_document(request=request)
         logger.info(f"Successfully indexed summary")
+        stats["success"] = True
         
     except Exception as e:
-        logger.error(f"Failed to create summary document: {e}")
-        raise
+        error_msg = f"Failed to create summary document: {str(e)}"
+        logger.error(error_msg)
+        stats["error"] = error_msg
+    
+    return stats
 
 
-def index_document(entry: ManifestEntry) -> None:
+def index_document(entry: ManifestEntry) -> Dict[str, Any]:
     """
     Index both chunks and summary for a document.
     
     Args:
         entry: ManifestEntry to index
+        
+    Returns:
+        Dict with indexing results: {
+            "source_id": str,
+            "success": bool,
+            "chunks": {...},
+            "summary": {...},
+            "error": str or None
+        }
     """
     logger.info(f"Starting document indexing for source_id={entry.source_id}")
+    
+    result = {
+        "source_id": entry.source_id,
+        "success": False,
+        "chunks": None,
+        "summary": None,
+        "error": None
+    }
     
     try:
         # Validate status
@@ -208,57 +277,182 @@ def index_document(entry: ManifestEntry) -> None:
         
         # Index chunks
         if entry.data_path:
-            index_chunks_to_discovery_engine(entry)
+            chunks_stats = index_chunks_to_discovery_engine(entry)
+            result["chunks"] = chunks_stats
         else:
             logger.warning(f"No data_path found for {entry.source_id}, skipping chunk indexing")
         
         # Index summary
         if entry.summary_path:
-            index_summaries_to_discovery_engine(entry)
+            summary_stats = index_summaries_to_discovery_engine(entry)
+            result["summary"] = summary_stats
         else:
             logger.warning(f"No summary_path found for {entry.source_id}, skipping summary indexing")
         
-        # Update manifest status to embedded
-        update_manifest_entry(entry.source_id, {
-            "status": DocumentStatus.EMBEDDED
-        })
+        # Determine overall success
+        chunks_ok = not result["chunks"] or result["chunks"]["failed"] == 0
+        summary_ok = not result["summary"] or result["summary"]["success"]
         
-        logger.info(f"Successfully indexed document {entry.source_id} and updated status to {DocumentStatus.EMBEDDED}")
+        if chunks_ok and summary_ok:
+            # Update manifest status to embedded
+            update_manifest_entry(entry.source_id, {
+                "status": DocumentStatus.EMBEDDED
+            })
+            result["success"] = True
+            logger.info(f"Successfully indexed document {entry.source_id} and updated status to {DocumentStatus.EMBEDDED}")
+        else:
+            # Partial failure
+            error_parts = []
+            if result["chunks"] and result["chunks"]["failed"] > 0:
+                error_parts.append(f"{result['chunks']['failed']} chunks failed")
+            if result["summary"] and not result["summary"]["success"]:
+                error_parts.append("summary failed")
+            
+            error_msg = "Indexing errors: " + ", ".join(error_parts)
+            result["error"] = error_msg
+            
+            update_manifest_entry(entry.source_id, {
+                "status": DocumentStatus.ERROR,
+                "notes": error_msg
+            })
+            
+            logger.error(f"Partial failure for {entry.source_id}: {error_msg}")
         
     except Exception as e:
+        error_msg = f"Indexing error: {str(e)}"
+        result["error"] = error_msg
         logger.error(f"Error indexing document {entry.source_id}: {e}", exc_info=True)
         
         # Update manifest to error status
         update_manifest_entry(entry.source_id, {
             "status": DocumentStatus.ERROR,
-            "notes": f"Indexing error: {str(e)}"
+            "notes": error_msg
         })
-        
-        raise
+    
+    return result
 
 
 def main():
     """CLI entry point for testing."""
-    from dotenv import load_dotenv
-    from shared.manifest import get_manifest_entry
-    
-    # Load environment variables
-    load_dotenv()
+    from shared.manifest import get_manifest_entry, get_manifest_entries
     
     parser = argparse.ArgumentParser(description="Index document into Discovery Engine")
-    parser.add_argument("--source-id", required=True, help="Source ID from manifest")
+    parser.add_argument("--source-id", help="Source ID from manifest (omit to index all pending)")
+    parser.add_argument("--chunks-only", action="store_true", help="Only index chunks")
+    parser.add_argument("--summaries-only", action="store_true", help="Only index summaries")
     
     args = parser.parse_args()
     
     try:
-        entry = get_manifest_entry(args.source_id)
-        if not entry:
-            logger.error(f"Manifest entry not found for source_id={args.source_id}")
-            return 1
+        if args.source_id:
+            # Index single document
+            entry = get_manifest_entry(args.source_id)
+            if not entry:
+                logger.error(f"Manifest entry not found for source_id={args.source_id}")
+                return 1
+            
+            # Apply filters
+            if args.chunks_only:
+                entry.summary_path = None
+            elif args.summaries_only:
+                entry.data_path = None
+            
+            result = index_document(entry)
+            
+            print()
+            print("="*80)
+            print(f"INDEXING RESULTS FOR {result['source_id']}")
+            print("="*80)
+            
+            if result["chunks"]:
+                print(f"\nChunks: {result['chunks']['success']}/{result['chunks']['total']} succeeded")
+                if result['chunks']['failed'] > 0:
+                    print(f"  Failed: {result['chunks']['failed']}")
+                    print(f"  Failed IDs: {', '.join(result['chunks']['failed_ids'][:5])}" + 
+                          (" ..." if len(result['chunks']['failed_ids']) > 5 else ""))
+            
+            if result["summary"]:
+                status = "✅ Success" if result['summary']['success'] else "❌ Failed"
+                print(f"\nSummary: {status}")
+                if result['summary']['error']:
+                    print(f"  Error: {result['summary']['error']}")
+            
+            if result["success"]:
+                print(f"\n✅ Overall: SUCCESS")
+            else:
+                print(f"\n❌ Overall: FAILED")
+                if result["error"]:
+                    print(f"  Error: {result['error']}")
+            
+            print("="*80)
+            
+            return 0 if result["success"] else 1
         
-        index_document(entry)
-        print(f"Successfully indexed document {args.source_id}")
-        return 0
+        else:
+            # Index all pending documents
+            entries = get_manifest_entries()
+            pending = [e for e in entries if e.status == DocumentStatus.PENDING_EMBEDDING]
+            
+            if not pending:
+                print("No pending documents to index.")
+                return 0
+            
+            print(f"Found {len(pending)} pending documents to index")
+            print()
+            
+            results = []
+            for entry in pending:
+                # Apply filters
+                if args.chunks_only:
+                    entry.summary_path = None
+                elif args.summaries_only:
+                    entry.data_path = None
+                
+                result = index_document(entry)
+                results.append(result)
+            
+            # Print summary
+            print()
+            print("="*80)
+            print("INDEXING SUMMARY")
+            print("="*80)
+            
+            successful = [r for r in results if r["success"]]
+            failed = [r for r in results if not r["success"]]
+            
+            print(f"\nTotal documents: {len(results)}")
+            print(f"✅ Successful: {len(successful)}")
+            print(f"❌ Failed: {len(failed)}")
+            
+            if failed:
+                print("\nFailed source_ids:")
+                for r in failed:
+                    print(f"  - {r['source_id']}: {r['error']}")
+            
+            # Chunk stats
+            total_chunks = sum(r["chunks"]["total"] for r in results if r["chunks"])
+            success_chunks = sum(r["chunks"]["success"] for r in results if r["chunks"])
+            failed_chunks = sum(r["chunks"]["failed"] for r in results if r["chunks"])
+            
+            if total_chunks > 0:
+                print(f"\nChunk statistics:")
+                print(f"  Total: {total_chunks}")
+                print(f"  Success: {success_chunks}")
+                print(f"  Failed: {failed_chunks}")
+            
+            # Summary stats
+            total_summaries = sum(1 for r in results if r["summary"])
+            success_summaries = sum(1 for r in results if r["summary"] and r["summary"]["success"])
+            
+            if total_summaries > 0:
+                print(f"\nSummary statistics:")
+                print(f"  Total: {total_summaries}")
+                print(f"  Success: {success_summaries}")
+                print(f"  Failed: {total_summaries - success_summaries}")
+            
+            print("="*80)
+            
+            return 0 if len(failed) == 0 else 1
         
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)

@@ -6,9 +6,11 @@ import logging
 import os
 from typing import List, Dict, Any, Optional
 
-# TODO: Import Discovery Engine search client
-# from google.cloud import discoveryengine_v1beta as discoveryengine
-# from google.protobuf.json_format import MessageToDict
+from dotenv import load_dotenv
+from google.cloud import discoveryengine_v1beta as discoveryengine
+
+# Load environment variables first
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,77 +44,68 @@ def search_chunks(
     """
     logger.info(f"Searching chunks with query: {query}")
     
-    # TODO: Initialize Discovery Engine Search client
-    # client = discoveryengine.SearchServiceClient()
-    
-    # Build search request - use the serving config from env
-    # serving_config = DISCOVERY_SERVING_CONFIG
-    # OR build it manually:
-    # serving_config = (
-    #     f"projects/{PROJECT_ID}/"
-    #     f"locations/{VERTEX_SEARCH_LOCATION}/"
-    #     f"collections/default_collection/"
-    #     f"dataStores/{CHUNKS_DATASTORE_ID}/"
-    #     f"servingConfigs/default_config"
-    # )
-    
-    # request = discoveryengine.SearchRequest(
-    #     serving_config=serving_config,
-    #     query=query,
-    #     page_size=max_results,
-    #     query_expansion_spec=discoveryengine.SearchRequest.QueryExpansionSpec(
-    #         condition=discoveryengine.SearchRequest.QueryExpansionSpec.Condition.AUTO,
-    #     ),
-    #     spell_correction_spec=discoveryengine.SearchRequest.SpellCorrectionSpec(
-    #         mode=discoveryengine.SearchRequest.SpellCorrectionSpec.Mode.AUTO
-    #     ),
-    # )
-    
-    # if filter_expression:
-    #     request.filter = filter_expression
-    
-    # Execute search
-    # response = client.search(request=request)
-    
-    # Process results - IMPORTANT: Use MessageToDict for structData
-    # results = []
-    # for result in response.results:
-    #     doc = result.document
-    #     
-    #     # Convert structData to dict using MessageToDict (required for MapComposite)
-    #     struct_data = MessageToDict(doc.struct_data._pb) if doc.struct_data else {}
-    #     
-    #     results.append({
-    #         "id": doc.id,
-    #         "content": struct_data.get("content", ""),
-    #         "page": struct_data.get("page"),
-    #         "start_sec": struct_data.get("start_sec"),
-    #         "end_sec": struct_data.get("end_sec"),
-    #         "source_id": struct_data.get("source_id"),
-    #         "filename": struct_data.get("filename"),
-    #         "title": struct_data.get("title"),
-    #         "score": result.relevance_score,
-    #         "metadata": struct_data
-    #     })
-    
-    # Placeholder response
-    logger.warning("Using placeholder chunk search results - implement Vertex AI Search")
-    results = [
-        {
-            "id": f"chunk_{i}",
-            "content": f"Placeholder chunk content for query: {query}",
-            "page": i + 1,
-            "source_id": "placeholder_source",
-            "filename": "placeholder.pdf",
-            "title": "Placeholder Document",
-            "score": 0.9 - (i * 0.1),
-            "metadata": {}
-        }
-        for i in range(min(3, max_results))
-    ]
-    
-    logger.info(f"Found {len(results)} chunk results")
-    return results
+    try:
+        # Initialize Discovery Engine Search client
+        client = discoveryengine.SearchServiceClient()
+        
+        # Build serving config for chunks datastore
+        serving_config = (
+            f"projects/{PROJECT_ID}/"
+            f"locations/{VERTEX_SEARCH_LOCATION}/"
+            f"collections/default_collection/"
+            f"dataStores/{CHUNKS_DATASTORE_ID}/"
+            f"servingConfigs/default_config"
+        )
+        
+        logger.info(f"Using chunks serving config: {serving_config}")
+        
+        # Build search request
+        request = discoveryengine.SearchRequest(
+            serving_config=serving_config,
+            query=query,
+            page_size=max_results,
+            query_expansion_spec=discoveryengine.SearchRequest.QueryExpansionSpec(
+                condition=discoveryengine.SearchRequest.QueryExpansionSpec.Condition.AUTO,
+            ),
+            spell_correction_spec=discoveryengine.SearchRequest.SpellCorrectionSpec(
+                mode=discoveryengine.SearchRequest.SpellCorrectionSpec.Mode.AUTO
+            ),
+        )
+        
+        if filter_expression:
+            request.filter = filter_expression
+            logger.info(f"Applied filter: {filter_expression}")
+        
+        # Execute search
+        response = client.search(request=request)
+        
+        # Process results
+        results = []
+        for result in response.results:
+            doc = result.document
+            
+            # Convert struct_data to regular dict
+            struct_data = dict(doc.struct_data) if doc.struct_data else {}
+            
+            results.append({
+                "id": doc.id,
+                "content": struct_data.get("content", ""),
+                "page": struct_data.get("page"),
+                "start_sec": struct_data.get("start_sec"),
+                "end_sec": struct_data.get("end_sec"),
+                "source_id": struct_data.get("source_id"),
+                "filename": struct_data.get("filename"),
+                "title": struct_data.get("title"),
+                "score": getattr(result, 'relevance_score', 0.0),
+                "metadata": struct_data
+            })
+        
+        logger.info(f"Found {len(results)} chunk results from Vertex AI Search")
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error searching chunks: {e}", exc_info=True)
+        raise
 
 
 def search_summaries(
@@ -133,29 +126,70 @@ def search_summaries(
     """
     logger.info(f"Searching summaries with query: {query}")
     
-    # TODO: Similar implementation to search_chunks but for summary datastore
-    # Use the same Discovery Engine API but with SUMMARY_DATASTORE_ID
-    
-    # Placeholder response
-    logger.warning("Using placeholder summary search results - implement Vertex AI Search")
-    results = [
-        {
-            "id": f"summary_{i}",
-            "summary_text": f"Placeholder summary for query: {query}",
-            "source_id": "placeholder_source",
-            "filename": "placeholder.pdf",
-            "title": "Placeholder Document",
-            "author": None,
-            "organization": None,
-            "tags": ["placeholder"],
-            "score": 0.95 - (i * 0.1),
-            "metadata": {}
-        }
-        for i in range(min(2, max_results))
-    ]
-    
-    logger.info(f"Found {len(results)} summary results")
-    return results
+    try:
+        # Initialize Discovery Engine Search client
+        client = discoveryengine.SearchServiceClient()
+        
+        # Build serving config for summaries datastore
+        serving_config = (
+            f"projects/{PROJECT_ID}/"
+            f"locations/{VERTEX_SEARCH_LOCATION}/"
+            f"collections/default_collection/"
+            f"dataStores/{SUMMARIES_DATASTORE_ID}/"
+            f"servingConfigs/default_config"
+        )
+        
+        logger.info(f"Using summaries serving config: {serving_config}")
+        
+        # Build search request
+        request = discoveryengine.SearchRequest(
+            serving_config=serving_config,
+            query=query,
+            page_size=max_results,
+            query_expansion_spec=discoveryengine.SearchRequest.QueryExpansionSpec(
+                condition=discoveryengine.SearchRequest.QueryExpansionSpec.Condition.AUTO,
+            ),
+            spell_correction_spec=discoveryengine.SearchRequest.SpellCorrectionSpec(
+                mode=discoveryengine.SearchRequest.SpellCorrectionSpec.Mode.AUTO
+            ),
+        )
+        
+        if filter_expression:
+            request.filter = filter_expression
+            logger.info(f"Applied filter: {filter_expression}")
+        
+        # Execute search
+        response = client.search(request=request)
+        
+        # Process results
+        results = []
+        for result in response.results:
+            doc = result.document
+            
+            # Convert struct_data to regular dict
+            struct_data = dict(doc.struct_data) if doc.struct_data else {}
+            
+            results.append({
+                "id": doc.id,
+                "summary_text": struct_data.get("summary_text", ""),
+                "source_id": struct_data.get("source_id"),
+                "filename": struct_data.get("filename"),
+                "title": struct_data.get("title"),
+                "author": struct_data.get("author"),
+                "organization": struct_data.get("organization"),
+                "date": struct_data.get("date"),
+                "publisher": struct_data.get("publisher"),
+                "tags": struct_data.get("tags", []),
+                "score": getattr(result, 'relevance_score', 0.0),
+                "metadata": struct_data
+            })
+        
+        logger.info(f"Found {len(results)} summary results from Vertex AI Search")
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error searching summaries: {e}", exc_info=True)
+        raise
 
 
 def search_two_tier(

@@ -6,8 +6,12 @@ import logging
 import os
 from typing import List, Dict, Any, Optional
 
-# TODO: Import Vertex AI Gemini
-# from vertexai.preview.generative_models import GenerativeModel, Part
+from dotenv import load_dotenv
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig
+
+# Load environment variables
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,7 +22,10 @@ logger = logging.getLogger(__name__)
 # Environment variables
 PROJECT_ID = os.getenv("PROJECT_ID")
 GENERATION_LOCATION = os.getenv("GENERATION_LOCATION", "us-central1")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+
+# Initialize Vertex AI
+vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
 
 
 def build_synthesis_prompt(
@@ -38,41 +45,80 @@ def build_synthesis_prompt(
         Formatted prompt string
     """
     prompt_parts = [
-        "You are a helpful assistant for the CENTEF knowledge base.",
-        "Answer the user's question using the provided context from document summaries and specific chunks.",
-        "Always cite your sources by mentioning the document title and, if applicable, page number or timestamp.",
+        "You are an expert assistant for the CENTEF (Center for Research of Terror Financing) knowledge base.",
+        "Your role is to provide accurate, comprehensive answers about terrorism financing, money laundering,",
+        "counter-terrorism finance (CTF), and related topics based on the provided documents.",
+        "",
+        "IMPORTANT CONTEXT:",
+        "- AML = Anti-Money Laundering",
+        "- CTF/CFT = Counter-Terrorism Financing / Combating the Financing of Terrorism",
+        "- FATF = Financial Action Task Force",
+        "",
+        "INSTRUCTIONS:",
+        "1. Answer the user's question using the information from the provided summaries and chunks below",
+        "2. Be specific and cite sources by mentioning document titles and page numbers",
+        "3. If abbreviations like AML, CTF, CFT appear in the documents, use the full terms in your answer",
+        "4. Synthesize information across multiple sources when relevant",
+        "5. Structure your answer clearly with relevant sections if appropriate",
+        "6. If the context is insufficient, clearly state what additional information would be needed",
         "",
         f"USER QUESTION: {query}",
         "",
+        "=" * 80,
         "DOCUMENT SUMMARIES:",
+        "=" * 80,
     ]
     
     # Add summaries
-    for i, summary in enumerate(summary_results, 1):
-        prompt_parts.append(f"\n[Summary {i}] {summary.get('title', 'Unknown')}")
-        prompt_parts.append(summary.get('summary_text', ''))
-        if summary.get('author'):
-            prompt_parts.append(f"Author: {summary['author']}")
-        if summary.get('organization'):
-            prompt_parts.append(f"Organization: {summary['organization']}")
+    if summary_results:
+        for i, summary in enumerate(summary_results, 1):
+            prompt_parts.append(f"\n[Document {i}] {summary.get('title', 'Unknown')}")
+            if summary.get('filename'):
+                prompt_parts.append(f"File: {summary['filename']}")
+            if summary.get('author'):
+                prompt_parts.append(f"Author: {summary['author']}")
+            if summary.get('organization'):
+                prompt_parts.append(f"Organization: {summary['organization']}")
+            if summary.get('date'):
+                prompt_parts.append(f"Date: {summary['date']}")
+            prompt_parts.append(f"\nSummary:")
+            prompt_parts.append(summary.get('summary_text', ''))
+            prompt_parts.append("")
+    else:
+        prompt_parts.append("(No document summaries available)")
     
     # Add chunks
-    prompt_parts.append("\n\nRELEVANT CHUNKS:")
-    for i, chunk in enumerate(chunk_results, 1):
-        prompt_parts.append(f"\n[Chunk {i}] {chunk.get('title', 'Unknown')}")
-        
-        # Add anchor information
-        if chunk.get('page'):
-            prompt_parts.append(f"(Page {chunk['page']})")
-        elif chunk.get('start_sec') is not None:
-            start = format_timestamp(chunk['start_sec'])
-            end = format_timestamp(chunk.get('end_sec', chunk['start_sec']))
-            prompt_parts.append(f"(Timestamp: {start} - {end})")
-        
-        prompt_parts.append(chunk.get('content', ''))
+    prompt_parts.append("\n" + "=" * 80)
+    prompt_parts.append("RELEVANT DETAILED CHUNKS:")
+    prompt_parts.append("=" * 80)
     
-    prompt_parts.append("\n\nPlease provide a comprehensive answer to the user's question based on the above context.")
-    prompt_parts.append("Include specific citations with document titles and page numbers or timestamps where applicable.")
+    if chunk_results:
+        for i, chunk in enumerate(chunk_results, 1):
+            prompt_parts.append(f"\n[Chunk {i}] Source: {chunk.get('title', 'Unknown')}")
+            
+            # Add location information
+            location_parts = []
+            if chunk.get('filename'):
+                location_parts.append(f"File: {chunk['filename']}")
+            if chunk.get('page_number') is not None:
+                location_parts.append(f"Page: {chunk['page_number']}")
+            elif chunk.get('start_sec') is not None:
+                start = format_timestamp(chunk['start_sec'])
+                end = format_timestamp(chunk.get('end_sec', chunk['start_sec']))
+                location_parts.append(f"Timestamp: {start} - {end}")
+            
+            if location_parts:
+                prompt_parts.append(", ".join(location_parts))
+            
+            prompt_parts.append(f"\nContent:")
+            prompt_parts.append(chunk.get('content', ''))
+            prompt_parts.append("")
+    else:
+        prompt_parts.append("(No detailed chunks available)")
+    
+    prompt_parts.append("\n" + "=" * 80)
+    prompt_parts.append("Please provide a comprehensive answer to the user's question based on the context above.")
+    prompt_parts.append("Include specific citations (document titles and page numbers) to support your answer.")
     
     return "\n".join(prompt_parts)
 
@@ -101,7 +147,8 @@ def synthesize_answer(
     query: str,
     summary_results: List[Dict[str, Any]],
     chunk_results: List[Dict[str, Any]],
-    temperature: float = 0.2
+    temperature: float = 0.2,
+    max_output_tokens: int = 2048
 ) -> Dict[str, Any]:
     """
     Generate an answer using Gemini based on retrieval results.
@@ -111,6 +158,7 @@ def synthesize_answer(
         summary_results: Summary search results
         chunk_results: Chunk search results
         temperature: Model temperature (0.0 - 1.0)
+        max_output_tokens: Maximum length of generated answer
     
     Returns:
         Dictionary with answer text and metadata
@@ -121,30 +169,37 @@ def synthesize_answer(
     # Build prompt
     prompt = build_synthesis_prompt(query, summary_results, chunk_results)
     
-    # TODO: Initialize Vertex AI and call Gemini
-    # import vertexai
-    # vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
-    # 
-    # model = GenerativeModel(GEMINI_MODEL)
-    # 
-    # response = model.generate_content(
-    #     prompt,
-    #     generation_config={
-    #         "temperature": temperature,
-    #         "max_output_tokens": 2048,
-    #     }
-    # )
-    # 
-    # answer_text = response.text
+    logger.info(f"Prompt length: {len(prompt)} characters")
     
-    # Placeholder response
-    logger.warning("Using placeholder answer - implement Gemini synthesis")
-    answer_text = (
-        f"This is a placeholder answer for the query: '{query}'\n\n"
-        f"Based on {len(summary_results)} document summaries and {len(chunk_results)} chunks, "
-        f"the answer would be synthesized here.\n\n"
-        f"Please implement Gemini API integration for actual synthesis."
-    )
+    try:
+        # Initialize Gemini model
+        model = GenerativeModel(GEMINI_MODEL)
+        
+        # Configure generation
+        generation_config = GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            top_p=0.95,
+        )
+        
+        # Generate answer
+        logger.info(f"Calling Gemini model: {GEMINI_MODEL}")
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
+        
+        answer_text = response.text
+        logger.info(f"Generated answer length: {len(answer_text)} characters")
+        
+    except Exception as e:
+        logger.error(f"Error generating answer with Gemini: {e}")
+        # Fallback response
+        answer_text = (
+            f"I apologize, but I encountered an error while generating an answer. "
+            f"However, I found {len(summary_results)} relevant document summaries and "
+            f"{len(chunk_results)} detailed chunks that may help answer your question about: {query}"
+        )
     
     # Extract source citations from results
     sources = []
@@ -168,7 +223,7 @@ def synthesize_answer(
                 "source_id": source_id,
                 "title": chunk.get('title'),
                 "filename": chunk.get('filename'),
-                "page": chunk.get('page'),
+                "page": chunk.get('page_number'),
                 "start_sec": chunk.get('start_sec'),
                 "end_sec": chunk.get('end_sec'),
                 "type": "chunk"
