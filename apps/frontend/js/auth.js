@@ -3,7 +3,7 @@
 // API Base URL - Update this when deploying to Cloud Run
 // Local development: http://localhost:8080
 // Cloud Run: https://your-backend-service-url.a.run.app
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = 'https://centef-rag-api-gac7qac6jq-uc.a.run.app';
 
 // Token management
 function getToken() {
@@ -166,3 +166,4 @@ function showSuccess(message) {
         setTimeout(() => successDiv.remove(), 5000);
     }
 }
+

@@ -45,8 +45,8 @@ Write-Host "[2/4] Deploying to Cloud Run..." -ForegroundColor Cyan
 
 # Load environment variables from .env
 $ENV_VARS = @()
-if (Test-Path "..\..\..\.env") {
-    Get-Content "..\..\..\.env" | ForEach-Object {
+if (Test-Path ".env") {
+    Get-Content ".env" | ForEach-Object {
         if ($_ -match '^([^#=]+)=(.*)$') {
             $key = $matches[1].Trim()
             $value = $matches[2].Trim().Trim('"')
@@ -57,16 +57,16 @@ if (Test-Path "..\..\..\.env") {
 
 # Required environment variables for Cloud Run
 $REQUIRED_VARS = @(
-    "PROJECT_ID=$PROJECT_ID"
-    "VERTEX_SEARCH_LOCATION"
-    "GENERATION_LOCATION"
-    "SUMMARY_MODEL"
-    "GEMINI_MODEL"
-    "CHUNKS_DATASTORE_ID"
-    "SUMMARIES_DATASTORE_ID"
-    "SOURCE_BUCKET"
-    "TARGET_BUCKET"
-    "CHAT_HISTORY_BUCKET"
+    "PROJECT_ID=$PROJECT_ID",
+    "VERTEX_SEARCH_LOCATION",
+    "GENERATION_LOCATION",
+    "SUMMARY_MODEL",
+    "GEMINI_MODEL",
+    "CHUNKS_DATASTORE_ID",
+    "SUMMARIES_DATASTORE_ID",
+    "SOURCE_BUCKET",
+    "TARGET_BUCKET",
+    "CHAT_HISTORY_BUCKET",
     "JWT_SECRET_KEY"
 )
 

@@ -19,7 +19,7 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy entire project structure (backend needs access to shared/ and tools/)
+# Copy application code and dependencies
 COPY . .
 
 # Set Python path to include parent directory
