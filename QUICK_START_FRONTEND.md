@@ -8,7 +8,7 @@ cd centef-rag-two-tier
 ```
 
 This will:
-1. ✅ Start the backend API on http://localhost:8000
+1. ✅ Start the backend API on http://localhost:8080
 2. ✅ Start the frontend on http://localhost:3000
 3. ✅ Open your browser to the login page
 
@@ -95,7 +95,7 @@ start http://localhost:3000/login.html
 
 ### Check Backend Health
 ```powershell
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 # Should return: {"status":"healthy"}
 ```
 
@@ -117,8 +117,8 @@ python check_env.py
 
 ### Port Already in Use
 ```powershell
-# Find process using port 8000
-netstat -ano | findstr :8000
+# Find process using port 8080
+netstat -ano | findstr :8080
 
 # Kill process (replace <PID> with actual number)
 taskkill /PID <PID> /F

@@ -164,7 +164,7 @@ import requests
 
 # Login as admin
 login = requests.post(
-    "http://localhost:8000/auth/login",
+    "http://localhost:8080/auth/login",
     json={
         "email": "admin@centef.org",
         "password": "Admin123!"
@@ -175,7 +175,7 @@ headers = {"Authorization": f"Bearer {admin_token}"}
 
 # Get pending approvals
 pending = requests.get(
-    "http://localhost:8000/admin/manifest/pending",
+    "http://localhost:8080/admin/manifest/pending",
     headers=headers
 )
 
@@ -190,7 +190,7 @@ for doc in pending.json():
     
     # Approve the document
     approval = requests.put(
-        f"http://localhost:8000/admin/manifest/{doc['source_id']}/approve",
+        f"http://localhost:8080/admin/manifest/{doc['source_id']}/approve",
         headers=headers,
         json={
             "approved": True,
@@ -208,14 +208,14 @@ import requests
 
 # Login as admin
 login = requests.post(
-    "http://localhost:8000/auth/login",
+    "http://localhost:8080/auth/login",
     json={"email": "admin@centef.org", "password": "Admin123!"}
 )
 headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 # Get system stats
 stats = requests.get(
-    "http://localhost:8000/admin/stats",
+    "http://localhost:8080/admin/stats",
     headers=headers
 ).json()
 
@@ -382,23 +382,24 @@ cd apps/agent_api
 python main.py
 
 # 3. Login as admin (in another terminal or use Postman)
-curl -X POST http://localhost:8000/auth/login \
+curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@centef.org","password":"Admin123!"}'
 
 # 4. Get pending approvals
-curl http://localhost:8000/admin/manifest/pending \
+curl http://localhost:8080/admin/manifest/pending \
   -H "Authorization: Bearer <token>"
 
 # 5. Approve a document
-curl -X PUT http://localhost:8000/admin/manifest/doc-123/approve \
+curl -X PUT http://localhost:8080/admin/manifest/doc-123/approve \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"approved":true,"notes":"Approved"}'
 
 # 6. Check system stats
-curl http://localhost:8000/admin/stats \
+curl http://localhost:8080/admin/stats \
   -H "Authorization: Bearer <token>"
 ```
 
 Your admin system is now fully configured! 🎉
+

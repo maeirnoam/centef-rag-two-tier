@@ -1,4 +1,4 @@
-# CENTEF RAG - Quick Start Guide
+﻿# CENTEF RAG - Quick Start Guide
 
 ## What Was Created
 
@@ -6,36 +6,36 @@ The `centef-rag-new` project has been scaffolded with the following structure:
 
 ```
 centef-rag-new/
-├── shared/                           # ✅ Core shared modules
-│   ├── __init__.py
-│   ├── schemas.py                    # Chunk, Summary, JSONL helpers
-│   └── manifest.py                   # ManifestEntry, CRUD operations
-├── tools/                            # ✅ Processing pipeline
-│   ├── __init__.py
-│   └── processing/
-│       ├── __init__.py
-│       ├── process_pdf.py           # PDF → page chunks (PyMuPDF)
-│       ├── process_docx.py          # DOCX → section chunks
-│       ├── process_image.py         # Image → OCR extraction
-│       ├── process_srt.py           # SRT → timestamp chunks
-│       └── summarize_chunks.py      # Gemini summarization
-├── services/                         # ✅ Embedding pipeline
-│   ├── __init__.py
-│   └── embedding/
-│       ├── __init__.py
-│       └── index_documents.py       # Discovery Engine indexing
-├── apps/                             # ✅ FastAPI application
-│   ├── __init__.py
-│   └── agent_api/
-│       ├── __init__.py
-│       ├── main.py                  # API endpoints
-│       ├── retriever_vertex_search.py  # Two-tier search
-│       └── synthesizer.py           # Gemini answer generation
-├── .env.example                      # ✅ Configuration template
-├── .gitignore                        # ✅ Git ignore rules
-├── requirements.txt                  # ✅ Python dependencies
-├── README.md                         # ✅ Full documentation
-└── __init__.py
+ג”ג”€ג”€ shared/                           # ג… Core shared modules
+ג”‚   ג”ג”€ג”€ __init__.py
+ג”‚   ג”ג”€ג”€ schemas.py                    # Chunk, Summary, JSONL helpers
+ג”‚   ג””ג”€ג”€ manifest.py                   # ManifestEntry, CRUD operations
+ג”ג”€ג”€ tools/                            # ג… Processing pipeline
+ג”‚   ג”ג”€ג”€ __init__.py
+ג”‚   ג””ג”€ג”€ processing/
+ג”‚       ג”ג”€ג”€ __init__.py
+ג”‚       ג”ג”€ג”€ process_pdf.py           # PDF ג†’ page chunks (PyMuPDF)
+ג”‚       ג”ג”€ג”€ process_docx.py          # DOCX ג†’ section chunks
+ג”‚       ג”ג”€ג”€ process_image.py         # Image ג†’ OCR extraction
+ג”‚       ג”ג”€ג”€ process_srt.py           # SRT ג†’ timestamp chunks
+ג”‚       ג””ג”€ג”€ summarize_chunks.py      # Gemini summarization
+ג”ג”€ג”€ services/                         # ג… Embedding pipeline
+ג”‚   ג”ג”€ג”€ __init__.py
+ג”‚   ג””ג”€ג”€ embedding/
+ג”‚       ג”ג”€ג”€ __init__.py
+ג”‚       ג””ג”€ג”€ index_documents.py       # Discovery Engine indexing
+ג”ג”€ג”€ apps/                             # ג… FastAPI application
+ג”‚   ג”ג”€ג”€ __init__.py
+ג”‚   ג””ג”€ג”€ agent_api/
+ג”‚       ג”ג”€ג”€ __init__.py
+ג”‚       ג”ג”€ג”€ main.py                  # API endpoints
+ג”‚       ג”ג”€ג”€ retriever_vertex_search.py  # Two-tier search
+ג”‚       ג””ג”€ג”€ synthesizer.py           # Gemini answer generation
+ג”ג”€ג”€ .env.example                      # ג… Configuration template
+ג”ג”€ג”€ .gitignore                        # ג… Git ignore rules
+ג”ג”€ג”€ requirements.txt                  # ג… Python dependencies
+ג”ג”€ג”€ README.md                         # ג… Full documentation
+ג””ג”€ג”€ __init__.py
 ```
 
 ## Next Steps
@@ -77,12 +77,12 @@ $env:GOOGLE_APPLICATION_CREDENTIALS="path\to\service-account.json"
 python apps/agent_api/main.py
 
 # In another terminal, test:
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 ## What's Implemented (with TODOs)
 
-### ✅ Fully Structured
+### ג… Fully Structured
 - Manifest lifecycle management (CRUD operations)
 - Chunk and Summary schemas with proper dataclasses
 - FastAPI endpoints for manifest management
@@ -92,7 +92,7 @@ curl http://localhost:8000/health
 - **Image OCR** with Vision API or Tesseract support
 - **GCS path handling** throughout all modules
 
-### ⚠️ Needs Integration (marked with TODO)
+### ג ן¸ Needs Integration (marked with TODO)
 1. **Gemini API**: Add Vertex AI calls in `summarize_chunks.py` and `synthesizer.py`
 2. **Discovery Engine**: Implement document import in `index_documents.py`
 3. **Vertex Search**: Implement actual search in `retriever_vertex_search.py`
@@ -106,7 +106,7 @@ All operations check and update the central manifest:
 
 ### Status Pipeline
 ```
-pending_processing → pending_summary → pending_approval → pending_embedding → embedded
+pending_processing ג†’ pending_summary ג†’ pending_approval ג†’ pending_embedding ג†’ embedded
 ```
 
 ### Two-Tier Search
@@ -141,7 +141,7 @@ python services/embedding/index_documents.py --source-id "test-123"
 
 1. **Frontend**: Calls `POST /manifest` to create entries, `PUT /manifest/{id}` to approve
 2. **Processing**: Scripts update manifest status as they complete
-3. **Embedding**: Triggered automatically when status → `pending_embedding`
+3. **Embedding**: Triggered automatically when status ג†’ `pending_embedding`
 4. **Search**: (TODO) Implement in `/search` endpoint
 
 ## Documentation
@@ -161,3 +161,5 @@ All core functionality has clear TODO comments indicating where to integrate:
 - Discovery Engine API calls
 
 Follow the established patterns in each module for consistency.
+
+

@@ -89,7 +89,7 @@ headers = {"Authorization": f"Bearer {token}"}
 
 # Start a chat (creates new session automatically)
 response = requests.post(
-    "http://localhost:8000/chat",
+    "http://localhost:8080/chat",
     headers=headers,
     json={"query": "What is counter-terrorism financing?"}
 )
@@ -99,7 +99,7 @@ print(f"Answer: {result['answer']}")
 
 # Continue the conversation (use same session_id)
 response2 = requests.post(
-    "http://localhost:8000/chat",
+    "http://localhost:8080/chat",
     headers=headers,
     json={
         "query": "Can you give me examples?",
@@ -109,14 +109,14 @@ response2 = requests.post(
 
 # Get conversation history
 history = requests.get(
-    f"http://localhost:8000/chat/history/{result['session_id']}",
+    f"http://localhost:8080/chat/history/{result['session_id']}",
     headers=headers
 )
 print(f"Conversation has {len(history.json())} messages")
 
 # List all sessions
 sessions = requests.get(
-    "http://localhost:8000/chat/sessions",
+    "http://localhost:8080/chat/sessions",
     headers=headers
 )
 for session in sessions.json():
@@ -130,17 +130,17 @@ for session in sessions.json():
 $TOKEN = (python generate_test_token.py john_doe | Select-String "Token:" | ForEach-Object { $_.ToString().Split(" ")[1] })
 
 # Start a chat
-$RESPONSE = curl -X POST http://localhost:8000/chat `
+$RESPONSE = curl -X POST http://localhost:8080/chat `
   -H "Authorization: Bearer $TOKEN" `
   -H "Content-Type: application/json" `
   -d '{"query": "What is AML?"}' | ConvertFrom-Json
 
 # Get sessions
-curl http://localhost:8000/chat/sessions `
+curl http://localhost:8080/chat/sessions `
   -H "Authorization: Bearer $TOKEN"
 
 # Get history
-curl "http://localhost:8000/chat/history/$($RESPONSE.session_id)" `
+curl "http://localhost:8080/chat/history/$($RESPONSE.session_id)" `
   -H "Authorization: Bearer $TOKEN"
 ```
 

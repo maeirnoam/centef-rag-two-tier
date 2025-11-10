@@ -1,4 +1,4 @@
-# Frontend Deployment Guide
+﻿# Frontend Deployment Guide
 
 ## Quick Start
 
@@ -9,7 +9,7 @@ cd centef-rag-two-tier\apps\agent_api
 python main.py
 ```
 
-The API will be available at: **http://localhost:8000**
+The API will be available at: **http://localhost:8080**
 
 ### 2. Start the Frontend Server
 
@@ -74,7 +74,7 @@ Open your browser to:
 4. Processing pipeline picks up the file automatically
 5. After summarization, status changes to `pending_approval`
 6. **Admin reviews and approves** the metadata in manifest page
-7. Status changes to `pending_embedding` → triggers indexing
+7. Status changes to `pending_embedding` ג†’ triggers indexing
 8. Once indexed, status changes to `embedded`
 9. Document is now searchable in chat queries
 
@@ -97,7 +97,7 @@ Open your browser to:
 ## API Endpoints
 
 ### Authentication
-- `POST /auth/login` - Login with email/password → returns JWT token
+- `POST /auth/login` - Login with email/password ג†’ returns JWT token
 - `POST /auth/register` - Register new user (if enabled)
 - `GET /auth/me` - Get current user info
 
@@ -128,7 +128,7 @@ Open your browser to:
 ### Change API URL
 Edit `js/auth.js`:
 ```javascript
-const API_BASE_URL = 'http://localhost:8000';  // Change this
+const API_BASE_URL = 'http://localhost:8080';  // Change this
 ```
 
 ### Change Frontend Port
@@ -170,7 +170,7 @@ python centef-rag-two-tier\check_env.py
 ```
 
 ### Frontend won't connect to backend
-1. Verify backend is running: http://localhost:8000/health
+1. Verify backend is running: http://localhost:8080/health
 2. Check CORS settings in `main.py`
 3. Check browser console for errors (F12)
 4. Verify API_BASE_URL in `js/auth.js`
@@ -236,30 +236,33 @@ Edit `css/style.css` - changes apply immediately (no build step)
 
 ### Debugging
 - **Backend logs:** Check terminal where `main.py` is running
-- **Frontend logs:** Open browser DevTools (F12) → Console tab
-- **API requests:** DevTools → Network tab
-- **Authentication:** Check localStorage in DevTools → Application tab
+- **Frontend logs:** Open browser DevTools (F12) ג†’ Console tab
+- **API requests:** DevTools ג†’ Network tab
+- **Authentication:** Check localStorage in DevTools ג†’ Application tab
 
 ## File Structure
 
 ```
 apps/
-├── agent_api/
-│   └── main.py              # FastAPI backend
-└── frontend/
-    ├── serve.py             # Development HTTP server
-    ├── login.html           # Login page
-    ├── chat.html            # Chat interface
-    ├── manifest.html        # Manifest management (admin)
-    ├── css/
-    │   └── style.css        # Shared styles
-    └── js/
-        └── auth.js          # Authentication utilities
+ג”ג”€ג”€ agent_api/
+ג”‚   ג””ג”€ג”€ main.py              # FastAPI backend
+ג””ג”€ג”€ frontend/
+    ג”ג”€ג”€ serve.py             # Development HTTP server
+    ג”ג”€ג”€ login.html           # Login page
+    ג”ג”€ג”€ chat.html            # Chat interface
+    ג”ג”€ג”€ manifest.html        # Manifest management (admin)
+    ג”ג”€ג”€ css/
+    ג”‚   ג””ג”€ג”€ style.css        # Shared styles
+    ג””ג”€ג”€ js/
+        ג””ג”€ג”€ auth.js          # Authentication utilities
 ```
 
 ## Next Steps
 
-1. **Test the workflow:** Login → Upload file → Admin approves → Chat queries
+1. **Test the workflow:** Login ג†’ Upload file ג†’ Admin approves ג†’ Chat queries
 2. **Customize branding:** Update colors, logo, and title in HTML/CSS
 3. **Add more features:** User profile page, advanced search filters, etc.
 4. **Deploy to production:** Follow security checklist above
+
+
+

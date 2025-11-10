@@ -205,7 +205,7 @@ headers = {"Authorization": f"Bearer {token}"}
 
 # Start a new chat
 response = requests.post(
-    "http://localhost:8000/chat",
+    "http://localhost:8080/chat",
     headers=headers,
     json={"query": "What is AML?"}
 )
@@ -214,14 +214,14 @@ print(response.json())
 # Get conversation history
 session_id = response.json()["session_id"]
 history = requests.get(
-    f"http://localhost:8000/chat/history/{session_id}",
+    f"http://localhost:8080/chat/history/{session_id}",
     headers=headers
 )
 print(history.json())
 
 # List all sessions
 sessions = requests.get(
-    "http://localhost:8000/chat/sessions",
+    "http://localhost:8080/chat/sessions",
     headers=headers
 )
 print(sessions.json())
@@ -237,7 +237,7 @@ headers = {"X-API-Key": api_key}
 
 # Make authenticated requests
 response = requests.post(
-    "http://localhost:8000/chat",
+    "http://localhost:8080/chat",
     headers=headers,
     json={"query": "What is CTF?"}
 )
@@ -251,17 +251,17 @@ print(response.json())
 $TOKEN = python generate_test_token.py john_doe
 
 # Start a chat
-curl -X POST http://localhost:8000/chat `
+curl -X POST http://localhost:8080/chat `
   -H "Authorization: Bearer $TOKEN" `
   -H "Content-Type: application/json" `
   -d '{"query": "What is counter-terrorism financing?"}'
 
 # Get sessions
-curl http://localhost:8000/chat/sessions `
+curl http://localhost:8080/chat/sessions `
   -H "Authorization: Bearer $TOKEN"
 
 # Get history
-curl "http://localhost:8000/chat/history/{session_id}" `
+curl "http://localhost:8080/chat/history/{session_id}" `
   -H "Authorization: Bearer $TOKEN"
 ```
 

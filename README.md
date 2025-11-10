@@ -1,4 +1,4 @@
-# CENTEF RAG System
+﻿# CENTEF RAG System
 
 A production-ready two-tier RAG (Retrieval-Augmented Generation) system using Google Cloud Vertex AI Search and Gemini for terrorism financing research.
 
@@ -14,36 +14,36 @@ All document metadata is tracked in a central `manifest.jsonl` stored in GCS.
 
 ## Key Features
 
-✅ **Multi-Format Processing**: PDF (PyMuPDF) and DOCX with page/section-level chunking
-✅ **AI Summarization**: Gemini-powered document summaries with metadata extraction
-✅ **Two-Tier Search**: High-level summaries + detailed chunks for optimal retrieval
-✅ **Answer Synthesis**: Gemini generates comprehensive answers with citations
-✅ **Production Ready**: Complete error handling, logging, and manifest tracking
-✅ **Vertex AI Search**: Direct API integration (CreateDocument) for unstructured datastores
+ג… **Multi-Format Processing**: PDF (PyMuPDF) and DOCX with page/section-level chunking
+ג… **AI Summarization**: Gemini-powered document summaries with metadata extraction
+ג… **Two-Tier Search**: High-level summaries + detailed chunks for optimal retrieval
+ג… **Answer Synthesis**: Gemini generates comprehensive answers with citations
+ג… **Production Ready**: Complete error handling, logging, and manifest tracking
+ג… **Vertex AI Search**: Direct API integration (CreateDocument) for unstructured datastores
 
 ## System Architecture
 
 ```
 centef-rag-two-tier/
-├── shared/                    # Core data structures
-│   ├── schemas.py            # Chunk, Summary, metadata conversion
-│   └── manifest.py           # Document lifecycle tracking
-├── tools/processing/          # Document processing
-│   ├── process_pdf.py        # PDF → page chunks (PyMuPDF)
-│   ├── process_docx.py       # DOCX → section chunks
-│   └── summarize_chunks.py   # Gemini summarization
-├── services/embedding/        # Indexing service
-│   └── index_documents.py    # Index to Vertex AI Search
-├── apps/agent_api/           # Query interface
-│   ├── retriever_vertex_search.py  # Two-tier search
-│   └── synthesizer.py        # Answer generation with Gemini
-├── Helper Scripts:
-│   ├── process_and_index_all.py   # End-to-end pipeline
-│   ├── test_rag_pipeline.py       # Test search + synthesis
-│   ├── quick_test.py              # Test search only
-│   ├── purge_datastores.py        # Clear all indexed data
-│   └── list_chunks.py / list_summaries.py  # Inspect datastores
-└── requirements.txt          # Python dependencies
+ג”ג”€ג”€ shared/                    # Core data structures
+ג”‚   ג”ג”€ג”€ schemas.py            # Chunk, Summary, metadata conversion
+ג”‚   ג””ג”€ג”€ manifest.py           # Document lifecycle tracking
+ג”ג”€ג”€ tools/processing/          # Document processing
+ג”‚   ג”ג”€ג”€ process_pdf.py        # PDF ג†’ page chunks (PyMuPDF)
+ג”‚   ג”ג”€ג”€ process_docx.py       # DOCX ג†’ section chunks
+ג”‚   ג””ג”€ג”€ summarize_chunks.py   # Gemini summarization
+ג”ג”€ג”€ services/embedding/        # Indexing service
+ג”‚   ג””ג”€ג”€ index_documents.py    # Index to Vertex AI Search
+ג”ג”€ג”€ apps/agent_api/           # Query interface
+ג”‚   ג”ג”€ג”€ retriever_vertex_search.py  # Two-tier search
+ג”‚   ג””ג”€ג”€ synthesizer.py        # Answer generation with Gemini
+ג”ג”€ג”€ Helper Scripts:
+ג”‚   ג”ג”€ג”€ process_and_index_all.py   # End-to-end pipeline
+ג”‚   ג”ג”€ג”€ test_rag_pipeline.py       # Test search + synthesis
+ג”‚   ג”ג”€ג”€ quick_test.py              # Test search only
+ג”‚   ג”ג”€ג”€ purge_datastores.py        # Clear all indexed data
+ג”‚   ג””ג”€ג”€ list_chunks.py / list_summaries.py  # Inspect datastores
+ג””ג”€ג”€ requirements.txt          # Python dependencies
 ```
 
 ## Setup
@@ -108,7 +108,7 @@ python process_and_index_all.py
 
 This script will:
 1. Find all PDF and DOCX files in `local_docs/`
-2. Process each file (extract text → create chunks)
+2. Process each file (extract text ג†’ create chunks)
 3. Generate Gemini summaries with metadata
 4. Index chunks and summaries to Vertex AI Search
 
@@ -216,7 +216,7 @@ Or with uvicorn:
 uvicorn apps.agent_api.main:app --reload --port 8000
 ```
 
-API will be available at `http://localhost:8000`
+API will be available at `http://localhost:8080`
 
 **Note**: The `/search` endpoint is currently being developed. Use `test_rag_pipeline.py` for testing the complete RAG functionality.
 
@@ -224,12 +224,12 @@ API will be available at `http://localhost:8000`
 
 Each document flows through these statuses:
 
-1. `pending_processing` → Document uploaded, needs chunking
-2. `pending_summary` → Chunks created, needs summary
-3. `pending_approval` → Summary ready, awaiting human review
-4. `pending_embedding` → Approved, ready to index
-5. `embedded` → Indexed and searchable
-6. `error` → Processing failed
+1. `pending_processing` ג†’ Document uploaded, needs chunking
+2. `pending_summary` ג†’ Chunks created, needs summary
+3. `pending_approval` ג†’ Summary ready, awaiting human review
+4. `pending_embedding` ג†’ Approved, ready to index
+5. `embedded` ג†’ Indexed and searchable
+6. `error` ג†’ Processing failed
 
 ## Manifest Structure
 
@@ -277,38 +277,38 @@ Add new endpoints in `apps/agent_api/main.py`. Use the shared manifest helpers f
 ## Implemented Features
 
 ### Document Processing
-✅ **PyMuPDF PDF Processing**: Full text extraction with page-level chunking
-✅ **DOCX Processing**: Section-based chunking with heading detection  
-✅ **Image OCR**: Supports both Google Cloud Vision API and Tesseract
-✅ **SRT Processing**: Timestamp-based chunking for subtitles
-✅ **GCS Integration**: All processors handle GCS paths correctly
-✅ **Gemini Summarization**: Automatic summary generation with metadata extraction
+ג… **PyMuPDF PDF Processing**: Full text extraction with page-level chunking
+ג… **DOCX Processing**: Section-based chunking with heading detection  
+ג… **Image OCR**: Supports both Google Cloud Vision API and Tesseract
+ג… **SRT Processing**: Timestamp-based chunking for subtitles
+ג… **GCS Integration**: All processors handle GCS paths correctly
+ג… **Gemini Summarization**: Automatic summary generation with metadata extraction
 
 ### Indexing & Search
-✅ **Vertex AI Discovery Engine**: Full integration with CreateDocument API
-✅ **Two-Tier Search**: Retrieves both summaries and chunks for comprehensive context
-✅ **Batch Indexing**: Process multiple documents from local folder
-✅ **Datastore Management**: Purge, list, and delete indexed documents
+ג… **Vertex AI Discovery Engine**: Full integration with CreateDocument API
+ג… **Two-Tier Search**: Retrieves both summaries and chunks for comprehensive context
+ג… **Batch Indexing**: Process multiple documents from local folder
+ג… **Datastore Management**: Purge, list, and delete indexed documents
 
 ### Answer Generation
-✅ **Gemini Synthesis**: Full answer generation using gemini-2.0-flash-exp
-✅ **Domain Context**: Built-in knowledge (AML=Anti-Money Laundering, CTF=Counter-Terrorism Financing)
-✅ **Citations**: Automatic source attribution with document titles and page numbers
-✅ **Prompt Engineering**: Comprehensive prompts with retrieved context
+ג… **Gemini Synthesis**: Full answer generation using gemini-2.0-flash-exp
+ג… **Domain Context**: Built-in knowledge (AML=Anti-Money Laundering, CTF=Counter-Terrorism Financing)
+ג… **Citations**: Automatic source attribution with document titles and page numbers
+ג… **Prompt Engineering**: Comprehensive prompts with retrieved context
 
 ### Helper Tools
-✅ **process_and_index_all.py**: End-to-end pipeline from local files to indexed datastores
-✅ **test_rag_pipeline.py**: Complete RAG testing with search + synthesis
-✅ **quick_test.py**: Search-only testing for debugging
-✅ **purge_datastores.py**: Clear all documents from both datastores
-✅ **list_chunks.py / list_summaries.py**: Inspect datastore contents
-✅ **delete_chunks.py / delete_summary.py**: Selective document deletion
+ג… **process_and_index_all.py**: End-to-end pipeline from local files to indexed datastores
+ג… **test_rag_pipeline.py**: Complete RAG testing with search + synthesis
+ג… **quick_test.py**: Search-only testing for debugging
+ג… **purge_datastores.py**: Clear all documents from both datastores
+ג… **list_chunks.py / list_summaries.py**: Inspect datastore contents
+ג… **delete_chunks.py / delete_summary.py**: Selective document deletion
 
 ## Tested Queries
 
 The system has been validated with real-world queries:
-- "what is AML?" → Retrieved 2 summaries + 5 chunks, generated comprehensive definition with examples
-- "what recent events took place by CENTEF?" → Retrieved 1 summary + 5 chunks, detailed Jan 8, 2025 Syria panel information
+- "what is AML?" ג†’ Retrieved 2 summaries + 5 chunks, generated comprehensive definition with examples
+- "what recent events took place by CENTEF?" ג†’ Retrieved 1 summary + 5 chunks, detailed Jan 8, 2025 Syria panel information
 
 ## TODO
 
@@ -328,3 +328,5 @@ Future enhancements:
 ## License
 
 [Your License Here]
+
+

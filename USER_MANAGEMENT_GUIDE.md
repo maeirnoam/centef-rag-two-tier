@@ -4,7 +4,7 @@
 The user management page allows admins to create, edit, and delete users. It's accessible only to users with the "admin" role.
 
 ## Prerequisites
-1. Backend running on port 8000: `cd apps/agent_api && python main.py`
+1. Backend running on port 8080: `cd apps/agent_api && python main.py`
 2. Frontend running on port 3000: `cd apps/frontend && python serve.py`
 3. Logged in as admin (admin@centef.org / Admin123!)
 
@@ -61,7 +61,7 @@ The user management page allows admins to create, edit, and delete users. It's a
 ### GET /admin/users
 List all users (admin only)
 ```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/admin/users
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/admin/users
 ```
 
 ### POST /admin/users
@@ -70,7 +70,7 @@ Create a new user (admin only)
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"email":"new@example.com","password":"Pass123!","full_name":"New User","roles":["user"]}' \
-  http://localhost:8000/admin/users
+  http://localhost:8080/admin/users
 ```
 
 ### PUT /admin/users/{user_id}
@@ -79,14 +79,14 @@ Update a user (admin only)
 curl -X PUT -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"full_name":"Updated Name","roles":["user","admin"],"is_active":true}' \
-  http://localhost:8000/admin/users/user_id
+  http://localhost:8080/admin/users/user_id
 ```
 
 ### DELETE /admin/users/{user_id}
 Delete (deactivate) a user (admin only)
 ```bash
 curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/admin/users/user_id
+  http://localhost:8080/admin/users/user_id
 ```
 
 ## Testing

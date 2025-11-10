@@ -180,7 +180,7 @@ import requests
 
 # Register a new user
 register_response = requests.post(
-    "http://localhost:8000/auth/register",
+    "http://localhost:8080/auth/register",
     json={
         "email": "john@example.com",
         "password": "secure-password",
@@ -193,7 +193,7 @@ print(f"Registered! Token: {token}")
 
 # Or login with existing user
 login_response = requests.post(
-    "http://localhost:8000/auth/login",
+    "http://localhost:8080/auth/login",
     json={
         "email": "john@example.com",
         "password": "secure-password"
@@ -206,12 +206,12 @@ token = login_response.json()["access_token"]
 headers = {"Authorization": f"Bearer {token}"}
 
 # Get user info
-me = requests.get("http://localhost:8000/auth/me", headers=headers)
+me = requests.get("http://localhost:8080/auth/me", headers=headers)
 print(me.json())
 
 # Start chatting
 chat = requests.post(
-    "http://localhost:8000/chat",
+    "http://localhost:8080/chat",
     headers=headers,
     json={"query": "What is CTF?"}
 )
@@ -410,7 +410,7 @@ async def auth_firebase(id_token: str):
 python shared/user_management.py create admin@example.com AdminPass123 "Admin User"
 
 # Test registration endpoint
-curl -X POST http://localhost:8000/auth/register \
+curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "password": "Test123!", "full_name": "Test User"}'
 ```
