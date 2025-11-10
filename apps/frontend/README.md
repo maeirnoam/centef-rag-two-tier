@@ -162,8 +162,8 @@ app.add_middleware(
 # Check Python environment
 conda activate .conda
 
-# Check if port 8000 is in use
-netstat -ano | findstr :8000
+# Check if port 8080 is in use
+netstat -ano | findstr :8080
 
 # Check required environment variables
 python centef-rag-two-tier\check_env.py

@@ -5,7 +5,7 @@ Run backend first: cd apps/agent_api && python main.py
 import requests
 import json
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8080"
 
 # Use admin credentials
 ADMIN_EMAIL = "admin@centef.org"

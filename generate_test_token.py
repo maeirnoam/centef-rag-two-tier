@@ -38,7 +38,7 @@ def main():
         print(f"  Use in requests: X-API-Key: {api_key}")
         print()
         print("Example curl command:")
-        print(f'  curl -H "X-API-Key: {api_key}" http://localhost:8000/chat/sessions')
+        print(f'  curl -H "X-API-Key: {api_key}" http://localhost:8080/chat/sessions')
         
     else:
         # Generate JWT token
@@ -56,14 +56,14 @@ def main():
         print(f'  Authorization: Bearer {token}')
         print()
         print("Example curl command:")
-        print(f'  curl -H "Authorization: Bearer {token}" http://localhost:8000/chat/sessions')
+        print(f'  curl -H "Authorization: Bearer {token}" http://localhost:8080/chat/sessions')
         print()
         print("Example Python requests:")
         print(f'''
 import requests
 
 headers = {{"Authorization": f"Bearer {token}"}}
-response = requests.get("http://localhost:8000/chat/sessions", headers=headers)
+response = requests.get("http://localhost:8080/chat/sessions", headers=headers)
 print(response.json())
         '''.strip())
     

@@ -12,6 +12,41 @@ The CENTEF RAG system provides end-to-end document processing, indexing, and int
 
 All document metadata is tracked in a central `manifest.jsonl` stored in GCS.
 
+## 🚀 Quick Start
+
+### Local Development
+```powershell
+cd centef-rag-two-tier
+.\start_local.ps1
+```
+See **[QUICK_START_FRONTEND.md](QUICK_START_FRONTEND.md)** for detailed local setup.
+
+### Production Deployment (Google Cloud Run)
+```powershell
+$env:PROJECT_ID = "your-project-id"
+.\deploy-backend.ps1
+.\deploy-frontend.ps1
+```
+See **[CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md)** for complete deployment guide.
+
+## 📚 Documentation
+
+### Deployment & Setup
+- **[CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md)** - Deploy to Google Cloud Run (Production)
+- **[CLOUD_RUN_QUICK_REF.md](CLOUD_RUN_QUICK_REF.md)** - Quick reference for Cloud Run commands
+- **[DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md)** - Overview of deployment architecture
+- **[QUICK_START_FRONTEND.md](QUICK_START_FRONTEND.md)** - Local development setup
+- **[QUICK_START.md](QUICK_START.md)** - Backend and pipeline setup
+
+### User & Admin Guides
+- **[ADMIN_GUIDE.md](ADMIN_GUIDE.md)** - Admin features and document approval workflow
+- **[USER_MANAGEMENT_GUIDE.md](USER_MANAGEMENT_GUIDE.md)** - User administration
+- **[CHAT_HISTORY.md](CHAT_HISTORY.md)** - Chat feature documentation
+
+### Developer Documentation
+- **[WORKFLOW_OVERVIEW.md](../WORKFLOW_OVERVIEW.md)** - System architecture and data flow
+- **[COPILOT_SETUP.md](../COPILOT_SETUP.md)** - AI coding agent instructions
+
 ## Key Features
 
 ג… **Multi-Format Processing**: PDF (PyMuPDF) and DOCX with page/section-level chunking
@@ -213,7 +248,7 @@ python apps/agent_api/main.py
 Or with uvicorn:
 
 ```powershell
-uvicorn apps.agent_api.main:app --reload --port 8000
+uvicorn apps.agent_api.main:app --reload --port 8080
 ```
 
 API will be available at `http://localhost:8080`

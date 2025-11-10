@@ -51,7 +51,7 @@
 
 ### Deployment Scripts
 8. **`start_local.ps1`** - One-command startup script
-   - Starts backend in new terminal (port 8000)
+   - Starts backend in new terminal (port 8080)
    - Starts frontend in new terminal (port 3000)
    - Opens browser to login page
    - Color-coded status messages

@@ -1473,7 +1473,7 @@ def search_documents(query: str, max_results: int = 10):
 if __name__ == "__main__":
     import uvicorn
     
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "8080"))
     
     uvicorn.run(
         "main:app",

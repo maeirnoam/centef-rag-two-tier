@@ -1,5 +1,8 @@
 // Authentication utilities
 
+// API Base URL - Update this when deploying to Cloud Run
+// Local development: http://localhost:8080
+// Cloud Run: https://your-backend-service-url.a.run.app
 const API_BASE_URL = 'http://localhost:8080';
 
 // Token management
