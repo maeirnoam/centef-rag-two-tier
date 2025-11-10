@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manifest - CENTEF RAG System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <div class="nav-brand">CENTEF RAG System</div>
+            <div class="nav-links">
+                <a href="chat.html">Chat</a>
+                <a href="manifest.html" class="admin-only">Manifest</a>
+                <a href="users.html" class="admin-only">Users</a>
+                <div class="user-info">
+                    <span class="user-email" id="user-email"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="main-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h1>Document Manifest</h1>
+                <div>
+                    <button class="btn btn-secondary" onclick="loadManifest()">↻ Refresh</button>
+                    <button class="btn btn-primary admin-only" onclick="showPendingApprovals()" style="margin-left: 0.5rem;">
+                        Pending Approvals
+                    </button>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label>
+                    Filter by status: 
+                    <select id="status-filter" onchange="loadManifest()" style="padding: 0.5rem; margin-left: 0.5rem;">
+                        <option value="">All</option>
+                        <option value="pending_processing">Pending Processing</option>
+                        <option value="pending_summary">Pending Summary</option>
+                        <option value="pending_approval">Pending Approval</option>
+                        <option value="pending_embedding">Pending Embedding</option>
+                        <option value="embedded">Embedded</option>
+                        <option value="error">Error</option>
+                    </select>
+                </label>
+            </div>
+            
+            <div id="manifest-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading manifest...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Modal -->
+    <div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="max-width: 600px; margin: 5rem auto; background: white; border-radius: 0.5rem; padding: 2rem;">
+            <h2 id="modal-title">Edit Document</h2>
+            <form id="edit-form">
+                <input type="hidden" id="edit-source-id">
+                
+                <div class="form-group">
+                    <label for="edit-title">Title</label>
+                    <input type="text" id="edit-title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-author">Author</label>
+                    <input type="text" id="edit-author">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-organization">Organization</label>
+                    <input type="text" id="edit-organization">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-date">Date</label>
+                    <input type="text" id="edit-date" placeholder="YYYY-MM-DD">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-publisher">Publisher</label>
+                    <input type="text" id="edit-publisher">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-tags">Tags (comma-separated)</label>
+                    <input type="text" id="edit-tags" placeholder="terrorism, financing, policy">
+                </div>
+                
+                <div class="form-group admin-only">
+                    <label for="edit-status">Status</label>
+                    <select id="edit-status">
+                        <option value="pending_processing">Pending Processing</option>
+                        <option value="pending_summary">Pending Summary</option>
+                        <option value="pending_approval">Pending Approval</option>
+                        <option value="pending_embedding">Pending Embedding</option>
+                        <option value="embedded">Embedded</option>
+                        <option value="error">Error</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-notes">Notes</label>
+                    <textarea id="edit-notes"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="button" class="btn btn-success admin-only" id="approve-btn" onclick="approveDocument()" style="margin-left: auto; display: none;">
+                        ✓ Approve & Index
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script>
+        requireAuth();
+        displayUserInfo();
+        
+        let manifestData = [];
+        
+        // Load manifest on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadManifest();
+        });
+        
+        // Load manifest
+        async function loadManifest() {
+            const statusFilter = document.getElementById('status-filter').value;
+            const url = statusFilter ? `/manifest?status=${statusFilter}` : '/manifest';
+            
+            document.getElementById('manifest-content').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading manifest...</p>
+                </div>
+            `;
+            
+            try {
+                manifestData = await apiCall(url, 'GET');
+                renderManifest(manifestData);
+            } catch (error) {
+                console.error('Failed to load manifest:', error);
+                showError('Failed to load manifest');
+            }
+        }
+        
+        // Render manifest table
+        function renderManifest(data) {
+            const content = document.getElementById('manifest-content');
+            
+            if (data.length === 0) {
+                content.innerHTML = '<p style="color: var(--text-gray); text-align: center; padding: 2rem;">No documents found</p>';
+                return;
+            }
+            
+            content.innerHTML = `
+                <table class="manifest-table">
+                    <thead>
+                        <tr>
+                            <th>Source ID</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(doc => `
+                            <tr>
+                                <td><code>${escapeHtml(doc.source_id)}</code></td>
+                                <td>${escapeHtml(doc.title || 'Untitled')}</td>
+                                <td>${escapeHtml(doc.author || '-')}</td>
+                                <td>${escapeHtml(doc.date || '-')}</td>
+                                <td><span class="status-badge status-${doc.status}">${escapeHtml(doc.status)}</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" onclick="editDocument('${doc.source_id}')">
+                                        Edit
+                                    </button>
+                                    ${doc.status === 'pending_approval' && isAdmin() ? `
+                                        <button class="btn btn-sm btn-success" onclick="approveDocumentQuick('${doc.source_id}')">
+                                            Approve
+                                        </button>
+                                    ` : ''}
+                                    ${isAdmin() ? `
+                                        <button class="btn btn-sm btn-danger" onclick="deleteDocument('${doc.source_id}', '${escapeHtml(doc.title || doc.source_id)}')">
+                                            Delete
+                                        </button>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        // Show pending approvals
+        async function showPendingApprovals() {
+            if (!isAdmin()) {
+                showError('Admin access required');
+                return;
+            }
+            
+            try {
+                const pending = await apiCall('/admin/manifest/pending', 'GET');
+                manifestData = pending;
+                renderManifest(pending);
+                document.getElementById('status-filter').value = '';
+            } catch (error) {
+                console.error('Failed to load pending approvals:', error);
+                showError('Failed to load pending approvals');
+            }
+        }
+        
+        // Edit document
+        function editDocument(sourceId) {
+            const doc = manifestData.find(d => d.source_id === sourceId);
+            if (!doc) return;
+            
+            document.getElementById('edit-source-id').value = doc.source_id;
+            document.getElementById('edit-title').value = doc.title || '';
+            document.getElementById('edit-author').value = doc.author || '';
+            document.getElementById('edit-organization').value = doc.organization || '';
+            document.getElementById('edit-date').value = doc.date || '';
+            document.getElementById('edit-publisher').value = doc.publisher || '';
+            document.getElementById('edit-tags').value = doc.tags?.join(', ') || '';
+            document.getElementById('edit-status').value = doc.status || '';
+            document.getElementById('edit-notes').value = doc.notes || '';
+            
+            // Show approve button for pending_approval documents (admin only)
+            const approveBtn = document.getElementById('approve-btn');
+            if (doc.status === 'pending_approval' && isAdmin()) {
+                approveBtn.style.display = 'block';
+            } else {
+                approveBtn.style.display = 'none';
+            }
+            
+            document.getElementById('modal-title').textContent = `Edit: ${doc.title || doc.source_id}`;
+            document.getElementById('edit-modal').style.display = 'block';
+        }
+        
+        // Close edit modal
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+            document.getElementById('edit-form').reset();
+        }
+        
+        // Save document changes
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const sourceId = document.getElementById('edit-source-id').value;
+            const tags = document.getElementById('edit-tags').value
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t);
+            
+            const updates = {
+                title: document.getElementById('edit-title').value,
+                author: document.getElementById('edit-author').value,
+                organization: document.getElementById('edit-organization').value,
+                date: document.getElementById('edit-date').value,
+                publisher: document.getElementById('edit-publisher').value,
+                tags: tags,
+                notes: document.getElementById('edit-notes').value
+            };
+            
+            // Add status if admin
+            if (isAdmin()) {
+                updates.status = document.getElementById('edit-status').value;
+            }
+            
+            try {
+                const result = await apiCall(`/manifest/${sourceId}`, 'PUT', updates);
+                showSuccess('Document updated successfully');
+                closeEditModal();
+                loadManifest();
+            } catch (error) {
+                console.error('Failed to update document:', error);
+                showError('Failed to update document');
+            }
+        });
+        
+        // Approve document (from modal)
+        async function approveDocument() {
+            const sourceId = document.getElementById('edit-source-id').value;
+            await approveDocumentQuick(sourceId);
+            closeEditModal();
+        }
+        
+        // Quick approve (from table)
+        async function approveDocumentQuick(sourceId) {
+            if (!isAdmin()) {
+                showError('Admin access required');
+                return;
+            }
+            
+            if (!confirm('Approve this document and trigger indexing?')) {
+                return;
+            }
+            
+            try {
+                const result = await apiCall(`/admin/manifest/${sourceId}/approve`, 'PUT', { approved: true });
+                showSuccess('Document approved and queued for indexing');
+                loadManifest();
+            } catch (error) {
+                console.error('Failed to approve document:', error);
+                showError('Failed to approve document');
+            }
+        }
+        
+        // Utility functions
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('edit-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'edit-modal') {
+                closeEditModal();
+            }
+        });
+        
+        // Delete document with cascading deletion
+        async function deleteDocument(sourceId, title) {
+            if (!isAdmin()) {
+                showError('Admin access required');
+                return;
+            }
+            
+            // Show detailed confirmation
+            const confirmMsg = `⚠️ CASCADING DELETE WARNING ⚠️
+
+This will permanently delete ALL data for:
+"${title}"
+
+The following will be deleted:
+• Source file from Google Cloud Storage
+• Processed chunks file (.jsonl)
+• Generated summary file (.jsonl)
+• All indexed chunk documents (${sourceId}_page_*)
+• Indexed summary document
+• Manifest entry
+
+This action CANNOT be undone.
+
+Type "DELETE" to confirm:`;
+            
+            const confirmation = prompt(confirmMsg);
+            
+            if (confirmation !== 'DELETE') {
+                if (confirmation !== null) {
+                    showError('Deletion cancelled - confirmation text did not match');
+                }
+                return;
+            }
+            
+            // Show loading state
+            showSuccess('Deleting... This may take a moment.');
+            
+            try {
+                const result = await apiCall(`/admin/sources/${sourceId}`, 'DELETE');
+                
+                // Show detailed results
+                let message = `Successfully deleted source "${title}"\n\n`;
+                message += `Deleted:\n`;
+                message += `• Source file: ${result.deleted.source_file ? '✓' : '✗'}\n`;
+                message += `• Chunks file: ${result.deleted.chunks_file ? '✓' : '✗'}\n`;
+                message += `• Summary file: ${result.deleted.summary_file ? '✓' : '✗'}\n`;
+                message += `• Indexed chunks: ${result.deleted.indexed_chunks} documents\n`;
+                message += `• Indexed summary: ${result.deleted.indexed_summary ? '✓' : '✗'}\n`;
+                message += `• Manifest entry: ${result.deleted.manifest_entry ? '✓' : '✗'}`;
+                
+                if (result.errors && result.errors.length > 0) {
+                    message += `\n\nWarnings:\n${result.errors.join('\n')}`;
+                }
+                
+                alert(message);
+                showSuccess('Document deleted successfully');
+                loadManifest();
+            } catch (error) {
+                console.error('Failed to delete document:', error);
+                showError('Failed to delete document: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

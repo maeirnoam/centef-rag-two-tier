@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - CENTEF RAG System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <div class="nav-brand">CENTEF RAG System</div>
+            <div class="nav-links">
+                <a href="chat.html">Chat</a>
+                <a href="manifest.html" class="admin-only">Manifest</a>
+                <a href="users.html" class="admin-only">Users</a>
+                <div class="user-info">
+                    <span class="user-email" id="user-email"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="split-layout">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <h3>Chat Sessions</h3>
+                <button class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;" onclick="createNewSession()">
+                    + New Chat
+                </button>
+                <div id="session-list" class="session-list">
+                    <div class="loading">Loading sessions...</div>
+                </div>
+                
+                <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border-color);">
+                
+                <h3>Upload Documents</h3>
+                <div class="upload-section" id="upload-section">
+                    <p>Drag & drop files here or click to browse</p>
+                    <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.srt" style="display: none;">
+                    <button class="btn btn-primary btn-sm" onclick="document.getElementById('file-input').click()" style="margin-top: 1rem;">
+                        Choose Files
+                    </button>
+                </div>
+                <div id="upload-status"></div>
+            </div>
+            
+            <!-- Main Chat Area -->
+            <div class="main-content">
+                <div class="chat-messages" id="chat-messages">
+                    <div style="text-align: center; color: var(--text-gray); padding: 2rem;">
+                        <h2>Welcome to CENTEF RAG System</h2>
+                        <p>Ask questions about terrorism financing research documents.</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="Ask a question..." 
+                           onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script>
+        requireAuth();
+        displayUserInfo();
+        
+        let currentSessionId = null;
+        let sessions = [];
+        
+        // Load sessions on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSessions();
+            setupFileUpload();
+        });
+        
+        // Load chat sessions
+        async function loadSessions() {
+            try {
+                sessions = await apiCall('/chat/sessions', 'GET');
+                renderSessions();
+                
+                // Auto-select first session if exists
+                if (sessions.length > 0 && !currentSessionId) {
+                    selectSession(sessions[0].session_id);
+                }
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+                showError('Failed to load chat sessions');
+            }
+        }
+        
+        // Render session list
+        function renderSessions() {
+            const sessionList = document.getElementById('session-list');
+            if (sessions.length === 0) {
+                sessionList.innerHTML = '<p style="color: var(--text-gray);">No sessions yet</p>';
+                return;
+            }
+            
+            sessionList.innerHTML = sessions.map(session => `
+                <div class="session-item ${session.session_id === currentSessionId ? 'active' : ''}" 
+                     onclick="selectSession('${session.session_id}')">
+                    <div style="font-weight: 500;">${escapeHtml(session.title || 'New Chat')}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-gray);">
+                        ${new Date(session.created_at).toLocaleDateString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Select a session
+        async function selectSession(sessionId) {
+            currentSessionId = sessionId;
+            renderSessions();
+            await loadChatHistory(sessionId);
+        }
+        
+        // Create new session
+        async function createNewSession() {
+            try {
+                const newSession = await apiCall('/chat/sessions', 'POST');
+                sessions.unshift(newSession);
+                selectSession(newSession.session_id);
+            } catch (error) {
+                console.error('Failed to create session:', error);
+                showError('Failed to create new session');
+            }
+        }
+        
+        // Load chat history for a session
+        async function loadChatHistory(sessionId) {
+            try {
+                const messages = await apiCall(`/chat/history/${sessionId}`, 'GET');
+                renderMessages(messages);
+            } catch (error) {
+                console.error('Failed to load chat history:', error);
+                showError('Failed to load chat history');
+            }
+        }
+        
+        // Render messages
+        function renderMessages(messages) {
+            const chatMessages = document.getElementById('chat-messages');
+            
+            if (messages.length === 0) {
+                chatMessages.innerHTML = 
+                    '<div style="text-align: center; color: var(--text-gray); padding: 2rem;">No messages yet</div>';
+                return;
+            }
+            
+            chatMessages.innerHTML = messages.map(msg => {
+                if (msg.role === 'user') {
+                    return `
+                        <div class="chat-message user">
+                            <div class="message-bubble">${escapeHtml(msg.content)}</div>
+                        </div>
+                    `;
+                } else {
+                    let sourcesHtml = '';
+                    if (msg.sources && msg.sources.length > 0) {
+                        sourcesHtml = `
+                            <div class="message-sources">
+                                <h4>Sources:</h4>
+                                ${formatSources(msg.sources)}
+                            </div>
+                        `;
+                    }
+                    
+                    return `
+                        <div class="chat-message assistant">
+                            <div class="message-bubble">${formatAnswer(msg.content)}</div>
+                            ${sourcesHtml}
+                        </div>
+                    `;
+                }
+            }).join('');
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Send message
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            
+            if (!query) return;
+            
+            // Create session if none exists
+            if (!currentSessionId) {
+                await createNewSession();
+            }
+            
+            // Add user message to UI immediately
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML += `
+                <div class="chat-message user">
+                    <div class="message-bubble">${escapeHtml(query)}</div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Clear input
+            input.value = '';
+            input.disabled = true;
+            
+            // Show loading indicator
+            const loadingId = 'loading-' + Date.now();
+            chatMessages.innerHTML += `
+                <div class="chat-message assistant" id="${loadingId}">
+                    <div class="message-bubble">
+                        <div class="spinner" style="width: 20px; height: 20px;"></div>
+                    </div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                const data = await apiCall('/chat', 'POST', {
+                    query: query,
+                    session_id: currentSessionId
+                });
+                
+                // Remove loading indicator
+                document.getElementById(loadingId)?.remove();
+                
+                // Add assistant response
+                let sourcesHtml = '';
+                if (data.sources && data.sources.length > 0) {
+                    sourcesHtml = `
+                        <div class="message-sources">
+                            <h4>Sources:</h4>
+                            ${formatSources(data.sources)}
+                        </div>
+                    `;
+                }
+                
+                chatMessages.innerHTML += `
+                    <div class="chat-message assistant">
+                        <div class="message-bubble">${formatAnswer(data.answer)}</div>
+                        ${sourcesHtml}
+                    </div>
+                `;
+                
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } catch (error) {
+                document.getElementById(loadingId)?.remove();
+                console.error('Failed to send message:', error);
+                showError('Failed to send message');
+            } finally {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+        
+        // File upload setup
+        function setupFileUpload() {
+            const uploadSection = document.getElementById('upload-section');
+            const fileInput = document.getElementById('file-input');
+            
+            // Drag and drop
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.classList.add('dragover');
+            });
+            
+            uploadSection.addEventListener('dragleave', () => {
+                uploadSection.classList.remove('dragover');
+            });
+            
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+            
+            // Click to browse
+            uploadSection.addEventListener('click', (e) => {
+                if (e.target === uploadSection || e.target.tagName === 'P') {
+                    fileInput.click();
+                }
+            });
+            
+            fileInput.addEventListener('change', () => {
+                handleFiles(fileInput.files);
+            });
+        }
+        
+        // Handle file uploads
+        async function handleFiles(files) {
+            const statusDiv = document.getElementById('upload-status');
+            statusDiv.innerHTML = '';
+            
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                statusDiv.innerHTML += `
+                    <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                        Uploading ${escapeHtml(file.name)}... <span class="spinner" style="width: 12px; height: 12px; display: inline-block;"></span>
+                    </div>
+                `;
+                
+                try {
+                    // Note: You'll need to implement file upload endpoint in main.py
+                    const response = await fetch(`${API_BASE_URL}/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        statusDiv.innerHTML += `
+                            <div class="message message-success" style="margin-top: 0.5rem;">
+                                ✓ ${escapeHtml(file.name)} uploaded successfully
+                            </div>
+                        `;
+                    } else {
+                        const error = await response.json();
+                        statusDiv.innerHTML += `
+                            <div class="message message-error" style="margin-top: 0.5rem;">
+                                ✗ ${escapeHtml(file.name)}: ${error.detail || 'Upload failed'}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    statusDiv.innerHTML += `
+                        <div class="message message-error" style="margin-top: 0.5rem;">
+                            ✗ ${escapeHtml(file.name)}: Upload failed
+                        </div>
+                    `;
+                }
+            }
+            
+            // Clear file input
+            document.getElementById('file-input').value = '';
+            
+            // Clear status after 5 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+        
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatSources(sources) {
+            if (!sources || sources.length === 0) return '';
+            
+            return sources.map(src => {
+                // Handle if source is an object
+                if (typeof src === 'object') {
+                    const title = src.title || src.source_id || 'Unknown Document';
+                    const sourceId = src.source_id || '';
+                    const page = src.page || src.anchor?.page || '';
+                    const url = src.url || src.source_uri || '';
+                    
+                    let displayText = escapeHtml(title);
+                    if (page) {
+                        displayText += ` (Page ${page})`;
+                    }
+                    
+                    // Make clickable if we have a URL
+                    if (url) {
+                        return `<div>• <a href="${escapeHtml(url)}" target="_blank" style="color: var(--primary-color); text-decoration: none;">${displayText}</a></div>`;
+                    } else {
+                        return `<div>• ${displayText}</div>`;
+                    }
+                } else {
+                    // Handle string sources
+                    return `<div>• ${escapeHtml(String(src))}</div>`;
+                }
+            }).join('');
+        }
+        
+        function formatAnswer(text) {
+            // Convert markdown-style bold and italic
+            text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            
+            // Convert line breaks
+            text = text.replace(/\n/g, '<br>');
+            
+            return text;
+        }
+    </script>
+</body>
+</html>

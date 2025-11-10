@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CENTEF RAG System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div style="max-width: 400px; margin: 5rem auto;">
+            <div class="main-content">
+                <h1 style="margin-bottom: 2rem; text-align: center;">CENTEF RAG System</h1>
+                
+                <div id="error-message"></div>
+                
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required 
+                               placeholder="user@example.com" autocomplete="email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required 
+                               placeholder="Enter your password" autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        Login
+                    </button>
+                </form>
+                
+                <div style="margin-top: 1.5rem; text-align: center; color: var(--text-gray); font-size: 0.875rem;">
+                    <p>Sample Accounts:</p>
+                    <p><strong>Admin:</strong> admin@centef.org / Admin123!</p>
+                    <p><strong>User:</strong> user@centef.org / User123!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script>
+        // Redirect if already logged in
+        if (isAuthenticated()) {
+            window.location.href = 'chat.html';
+        }
+        
+        const loginForm = document.getElementById('login-form');
+        const errorDiv = document.getElementById('error-message');
+        
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            
+            // Clear previous errors
+            errorDiv.innerHTML = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            
+            try {
+                await login(email, password);
+                window.location.href = 'chat.html';
+            } catch (error) {
+                errorDiv.innerHTML = `
+                    <div class="message message-error">
+                        ${error.message || 'Login failed. Please check your credentials.'}
+                    </div>
+                `;
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+</html>

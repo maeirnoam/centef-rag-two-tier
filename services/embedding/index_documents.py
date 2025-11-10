@@ -14,6 +14,7 @@ from typing import List, Dict, Any
 from dotenv import load_dotenv
 from google.cloud import storage
 from google.cloud import discoveryengine_v1beta as discoveryengine
+from google.protobuf import struct_pb2
 
 # Load environment variables first
 load_dotenv()
@@ -127,10 +128,16 @@ def index_chunks_to_discovery_engine(entry: ManifestEntry) -> Dict[str, Any]:
             doc_dict = convert_to_discovery_engine_format(chunk)
             doc_id = doc_dict["id"]
             
-            # Create Document object
+            # Convert chunk data to protobuf Struct
+            # Note: We include the content in struct_data, not as a separate content field
+            # This matches the datastore configuration (NO_CONTENT or CONTENT_NOT_REQUIRED)
+            struct_data = struct_pb2.Struct()
+            struct_data.update(doc_dict.get("jsonData", {}))
+            
+            # Create Document object with struct_data only (like summaries)
             document = discoveryengine.Document(
                 id=doc_id,
-                json_data=json.dumps(doc_dict.get("jsonData", doc_dict.get("content", {}))),
+                struct_data=struct_data
             )
             
             # Create document request
@@ -211,14 +218,14 @@ def index_summaries_to_discovery_engine(entry: ManifestEntry) -> Dict[str, Any]:
         logger.info(f"JSON content type: {type(json_content)}")
         logger.info(f"JSON content keys: {json_content.keys() if isinstance(json_content, dict) else 'not a dict'}")
         
-        # Convert to JSON string
-        json_string = json.dumps(json_content)
-        logger.info(f"JSON string length: {len(json_string)}, starts with: {json_string[:100]}")
+        # Convert to protobuf Struct
+        struct_data = struct_pb2.Struct()
+        struct_data.update(json_content)
         
-        # Create Document object
+        # Create Document object with struct_data
         document = discoveryengine.Document(
             id=doc_dict["id"],
-            json_data=json_string,
+            struct_data=struct_data,
         )
         
         # Create document request

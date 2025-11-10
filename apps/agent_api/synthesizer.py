@@ -289,6 +289,7 @@ def synthesize_answer(
     answer_text = None
     model_used = None
     last_error = None
+    usage_metadata = None  # Track token usage
     
     for model_name in FALLBACK_MODELS:
         try:
@@ -302,6 +303,16 @@ def synthesize_answer(
             
             answer_text = response.text
             model_used = model_name
+            
+            # Extract token usage if available
+            if hasattr(response, 'usage_metadata'):
+                usage_metadata = {
+                    'prompt_token_count': getattr(response.usage_metadata, 'prompt_token_count', 0),
+                    'candidates_token_count': getattr(response.usage_metadata, 'candidates_token_count', 0),
+                    'total_token_count': getattr(response.usage_metadata, 'total_token_count', 0),
+                }
+                logger.info(f"Token usage: {usage_metadata}")
+            
             logger.info(f"✅ Success with {model_name} - Generated {len(answer_text)} characters")
             break
             
@@ -401,7 +412,7 @@ def synthesize_answer(
     # For now, all retrieved sources are "context sources"
     # The explicit_citations from the answer tell us which were actually cited
     
-    return {
+    result = {
         "query": query,
         "answer": main_answer,  # Main answer without citations section
         "full_answer": answer_text,  # Full answer including citations section
@@ -409,9 +420,17 @@ def synthesize_answer(
         "sources": all_sources,  # All sources used for context
         "num_summaries_used": len(summary_results),
         "num_chunks_used": len(chunk_results),
-        "model": model_used or "unknown",
+        "model_used": model_used or "unknown",
         "temperature": temperature
     }
+    
+    # Add token usage if available
+    if usage_metadata:
+        result["input_tokens"] = usage_metadata.get('prompt_token_count', 0)
+        result["output_tokens"] = usage_metadata.get('candidates_token_count', 0)
+        result["total_tokens"] = usage_metadata.get('total_token_count', 0)
+    
+    return result
 
 
 def generate_follow_up_questions(

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - CENTEF RAG System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <div class="nav-brand">CENTEF RAG System</div>
+            <div class="nav-links">
+                <a href="chat.html">Chat</a>
+                <a href="manifest.html" class="admin-only">Manifest</a>
+                <a href="users.html" class="admin-only">Users</a>
+                <div class="user-info">
+                    <span class="user-email" id="user-email"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="main-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h1>User Management</h1>
+                <div>
+                    <button class="btn btn-secondary" onclick="loadUsers()">↻ Refresh</button>
+                    <button class="btn btn-primary" onclick="showCreateUserModal()" style="margin-left: 0.5rem;">
+                        + Create User
+                    </button>
+                </div>
+            </div>
+            
+            <div id="users-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading users...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create User Modal -->
+    <div id="create-modal" class="modal">
+        <div class="modal-content">
+            <h2>Create New User</h2>
+            <form id="create-form" onsubmit="createUser(event)">
+                <div class="form-group">
+                    <label for="create-email">Email *</label>
+                    <input type="email" id="create-email" required placeholder="user@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="create-full-name">Full Name *</label>
+                    <input type="text" id="create-full-name" required placeholder="John Doe">
+                </div>
+                
+                <div class="form-group">
+                    <label for="create-password">Password *</label>
+                    <input type="password" id="create-password" required minlength="8" placeholder="Min 8 characters">
+                    <small style="color: #666;">Minimum 8 characters</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="create-is-admin" onchange="updateRolePreview()">
+                        Grant Admin Access
+                    </label>
+                    <small style="color: #666; display: block; margin-top: 0.25rem;" id="role-preview">
+                        Roles: user
+                    </small>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Edit User Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <h2>Edit User</h2>
+            <form id="edit-form" onsubmit="updateUser(event)">
+                <input type="hidden" id="edit-user-id">
+                
+                <div class="form-group">
+                    <label for="edit-email">Email</label>
+                    <input type="email" id="edit-email" disabled>
+                    <small style="color: #666;">Email cannot be changed</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-full-name">Full Name *</label>
+                    <input type="text" id="edit-full-name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="edit-is-admin" onchange="updateEditRolePreview()">
+                        Grant Admin Access
+                    </label>
+                    <small style="color: #666; display: block; margin-top: 0.25rem;" id="edit-role-preview">
+                        Roles: user
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="edit-is-active">
+                        Active
+                    </label>
+                    <small style="color: #666; display: block; margin-top: 0.25rem;">
+                        Inactive users cannot log in
+                    </small>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Reset Password Modal -->
+    <div id="password-modal" class="modal">
+        <div class="modal-content">
+            <h2>Reset Password</h2>
+            <p>Reset password for: <strong id="password-user-name"></strong></p>
+            <form id="password-form" onsubmit="resetPassword(event)">
+                <input type="hidden" id="password-user-id">
+                
+                <div class="form-group">
+                    <label for="new-password">New Password *</label>
+                    <input type="password" id="new-password" required minlength="8" placeholder="Min 8 characters">
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password *</label>
+                    <input type="password" id="confirm-password" required minlength="8" placeholder="Re-enter password">
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script>
+        // Check authentication and admin role
+        requireAdmin();
+        
+        // Load users on page load
+        loadUsers();
+        
+        async function loadUsers() {
+            const content = document.getElementById('users-content');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading users...</p></div>';
+            
+            try {
+                const response = await apiCall('/admin/users', 'GET');
+                console.log('Raw response:', response);
+                console.log('Response type:', typeof response);
+                console.log('Is array?', Array.isArray(response));
+                
+                // Handle both array and wrapped object responses
+                let users;
+                if (Array.isArray(response)) {
+                    users = response;
+                } else if (response.users && Array.isArray(response.users)) {
+                    users = response.users;
+                } else {
+                    console.error('Unexpected response format:', response);
+                    throw new Error('Invalid response format from server');
+                }
+                
+                if (!users || users.length === 0) {
+                    content.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No users found.</p>';
+                    return;
+                }
+                
+                // Sort by created_at descending
+                users.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                
+                // Build table
+                let html = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Full Name</th>
+                                <th>Roles</th>
+                                <th>Status</th>
+                                <th>Total Tokens</th>
+                                <th>Created</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                for (const user of users) {
+                    const statusBadge = user.is_active 
+                        ? '<span class="badge badge-success">Active</span>'
+                        : '<span class="badge badge-error">Inactive</span>';
+                    
+                    const rolesBadges = user.roles.map(role => {
+                        const badgeClass = role === 'admin' ? 'badge-primary' : 'badge-secondary';
+                        return `<span class="badge ${badgeClass}">${role}</span>`;
+                    }).join(' ');
+                    
+                    const createdDate = new Date(user.created_at).toLocaleDateString();
+                    const lastLogin = user.last_login 
+                        ? new Date(user.last_login).toLocaleDateString() 
+                        : 'Never';
+                    
+                    const totalTokens = (user.total_tokens || 0).toLocaleString();
+                    
+                    html += `
+                        <tr>
+                            <td>${user.email}</td>
+                            <td>${user.full_name}</td>
+                            <td>${rolesBadges}</td>
+                            <td>${statusBadge}</td>
+                            <td style="text-align: right;">${totalTokens}</td>
+                            <td>${createdDate}</td>
+                            <td>${lastLogin}</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="showEditModal('${user.user_id}')">Edit</button>
+                                <button class="btn btn-sm btn-secondary" onclick="showPasswordModal('${user.user_id}', '${user.email}')">Reset Password</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.user_id}', '${user.email}')">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                html += '</tbody></table>';
+                content.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading users:', error);
+                content.innerHTML = `<p style="color: red; text-align: center;">Error loading users: ${error.message}</p>`;
+            }
+        }
+        
+        function showCreateUserModal() {
+            document.getElementById('create-modal').style.display = 'flex';
+            document.getElementById('create-form').reset();
+            updateRolePreview();
+        }
+        
+        function closeCreateModal() {
+            document.getElementById('create-modal').style.display = 'none';
+        }
+        
+        function updateRolePreview() {
+            const isAdmin = document.getElementById('create-is-admin').checked;
+            const roles = isAdmin ? ['user', 'admin'] : ['user'];
+            document.getElementById('role-preview').textContent = `Roles: ${roles.join(', ')}`;
+        }
+        
+        async function createUser(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('create-email').value;
+            const fullName = document.getElementById('create-full-name').value;
+            const password = document.getElementById('create-password').value;
+            const isAdmin = document.getElementById('create-is-admin').checked;
+            
+            const roles = isAdmin ? ['user', 'admin'] : ['user'];
+            
+            try {
+                const result = await apiCall('/admin/users', 'POST', {
+                    email,
+                    full_name: fullName,
+                    password,
+                    roles
+                });
+                
+                console.log('Create user result:', result);
+                
+                // Handle different response formats
+                const userEmail = result.user?.email || result.email || email;
+                const userId = result.user?.user_id || result.user_id || 'unknown';
+                
+                alert(`User created successfully!\n\nEmail: ${userEmail}\nUser ID: ${userId}`);
+                closeCreateModal();
+                loadUsers();
+                
+            } catch (error) {
+                console.error('Error creating user:', error);
+                alert(`Error creating user: ${error.message}`);
+            }
+        }
+        
+        async function showEditModal(userId) {
+            try {
+                const users = await apiCall('/admin/users', 'GET');
+                const user = users.find(u => u.user_id === userId);
+                
+                if (!user) {
+                    alert('User not found');
+                    return;
+                }
+                
+                document.getElementById('edit-user-id').value = user.user_id;
+                document.getElementById('edit-email').value = user.email;
+                document.getElementById('edit-full-name').value = user.full_name;
+                document.getElementById('edit-is-admin').checked = user.roles.includes('admin');
+                document.getElementById('edit-is-active').checked = user.is_active;
+                
+                updateEditRolePreview();
+                
+                document.getElementById('edit-modal').style.display = 'flex';
+                
+            } catch (error) {
+                console.error('Error loading user:', error);
+                alert(`Error loading user: ${error.message}`);
+            }
+        }
+        
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+        
+        function updateEditRolePreview() {
+            const isAdmin = document.getElementById('edit-is-admin').checked;
+            const roles = isAdmin ? ['user', 'admin'] : ['user'];
+            document.getElementById('edit-role-preview').textContent = `Roles: ${roles.join(', ')}`;
+        }
+        
+        async function updateUser(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('edit-user-id').value;
+            const fullName = document.getElementById('edit-full-name').value;
+            const isAdmin = document.getElementById('edit-is-admin').checked;
+            const isActive = document.getElementById('edit-is-active').checked;
+            
+            const roles = isAdmin ? ['user', 'admin'] : ['user'];
+            
+            try {
+                await apiCall(`/admin/users/${userId}`, 'PUT', {
+                    full_name: fullName,
+                    roles,
+                    is_active: isActive
+                });
+                
+                alert('User updated successfully!');
+                closeEditModal();
+                loadUsers();
+                
+            } catch (error) {
+                console.error('Error updating user:', error);
+                alert(`Error updating user: ${error.message}`);
+            }
+        }
+        
+        function showPasswordModal(userId, email) {
+            document.getElementById('password-user-id').value = userId;
+            document.getElementById('password-user-name').textContent = email;
+            document.getElementById('password-form').reset();
+            document.getElementById('password-modal').style.display = 'flex';
+        }
+        
+        function closePasswordModal() {
+            document.getElementById('password-modal').style.display = 'none';
+        }
+        
+        async function resetPassword(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('password-user-id').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (newPassword !== confirmPassword) {
+                alert('Passwords do not match!');
+                return;
+            }
+            
+            try {
+                await apiCall(`/admin/users/${userId}`, 'PUT', {
+                    password: newPassword
+                });
+                
+                alert('Password reset successfully!');
+                closePasswordModal();
+                
+            } catch (error) {
+                console.error('Error resetting password:', error);
+                alert(`Error resetting password: ${error.message}`);
+            }
+        }
+        
+        async function deleteUser(userId, email) {
+            const confirmText = 'DELETE';
+            const userInput = prompt(
+                `⚠️ WARNING: Delete User\n\n` +
+                `This will deactivate the user account:\n\n` +
+                `Email: ${email}\n` +
+                `User ID: ${userId}\n\n` +
+                `The user will not be able to log in.\n\n` +
+                `Type "${confirmText}" to confirm:`
+            );
+            
+            if (userInput !== confirmText) {
+                if (userInput !== null) {
+                    alert('Deletion cancelled. You must type "DELETE" exactly.');
+                }
+                return;
+            }
+            
+            try {
+                const result = await apiCall(`/admin/users/${userId}`, 'DELETE');
+                
+                alert(`User deactivated successfully!\n\n${result.message}`);
+                loadUsers();
+                
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                alert(`Error deleting user: ${error.message}`);
+            }
+        }
+        
+        // Close modals on click outside
+        window.onclick = function(event) {
+            const modals = ['create-modal', 'edit-modal', 'password-modal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        };
+    </script>
+    
+    <style>
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .users-table th,
+        .users-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .users-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .users-table tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        .users-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .badge-primary {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .badge-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            max-width: 500px;
+            width: 90%;
+            background: white;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+        }
+        
+        .form-group input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+    </style>
+</body>
+</html>

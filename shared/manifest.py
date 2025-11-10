@@ -342,19 +342,47 @@ def trigger_embedding_for_source(entry: ManifestEntry) -> None:
     """
     logger.info(f"Triggering embedding for source_id={entry.source_id}")
     
-    # TODO: Implement actual trigger logic
-    # Options:
-    # 1. Direct function call to services/embedding/index_documents.py
-    # 2. Pub/Sub message to trigger Cloud Function
-    # 3. Cloud Tasks queue
-    # 4. Direct API call to embedding service
-    
-    # Placeholder implementation:
     try:
         from services.embedding.index_documents import index_document
         logger.info(f"Calling index_document for {entry.source_id}")
-        # index_document(entry)
-    except ImportError:
-        logger.warning("Embedding service not yet implemented")
+        index_document(entry)  # Pass the full entry object, not just source_id
+        logger.info(f"Successfully triggered indexing for {entry.source_id}")
+    except ImportError as e:
+        logger.error(f"Could not import embedding service: {e}")
     except Exception as e:
-        logger.error(f"Error triggering embedding: {e}")
+        logger.error(f"Error triggering embedding: {e}", exc_info=True)
+        # Update manifest to error status
+        update_manifest_entry(entry.source_id, {
+            "status": DocumentStatus.ERROR,
+            "notes": f"Indexing error: {str(e)}"
+        })
+
+
+def delete_manifest_entry(source_id: str) -> bool:
+    """
+    Delete a manifest entry.
+    
+    Args:
+        source_id: The source_id to delete
+        
+    Returns:
+        True if deleted, False if not found
+    """
+    logger.info(f"Deleting manifest entry for source_id={source_id}")
+    
+    # Load all entries
+    entries = get_manifest_entries()
+    
+    # Filter out the entry to delete
+    original_count = len(entries)
+    entries = [e for e in entries if e.source_id != source_id]
+    
+    if len(entries) == original_count:
+        logger.warning(f"Entry {source_id} not found in manifest")
+        return False
+    
+    # Save updated manifest using existing write function
+    _write_manifest_entries(entries)
+    
+    logger.info(f"Successfully deleted manifest entry {source_id}")
+    return True
