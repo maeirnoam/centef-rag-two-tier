@@ -359,29 +359,43 @@
         
         function formatSources(sources) {
             if (!sources || sources.length === 0) return '';
-            
+
             return sources.map(src => {
                 // Handle if source is an object
                 if (typeof src === 'object') {
-                    const title = src.title || src.source_id || 'Unknown Document';
-                    const sourceId = src.source_id || '';
-                    const page = src.page || src.anchor?.page || '';
-                    const url = src.url || src.source_uri || '';
-                    
+                    const title = src.title || src.filename || src.source_id || 'Unknown Document';
+                    const sourceUri = src.source_uri || '';
+                    const pages = src.pages || [];
+                    const pageRange = src.page_range || '';
+
                     let displayText = escapeHtml(title);
-                    if (page) {
-                        displayText += ` (Page ${page})`;
+
+                    // Add page information
+                    if (pageRange) {
+                        displayText += ` (Pages ${pageRange})`;
+                    } else if (pages && pages.length > 0) {
+                        if (pages.length === 1) {
+                            displayText += ` (Page ${pages[0]})`;
+                        } else {
+                            displayText += ` (Pages ${pages.join(', ')})`;
+                        }
                     }
-                    
-                    // Make clickable if we have a URL
-                    if (url) {
-                        return `<div>• <a href="${escapeHtml(url)}" target="_blank" style="color: var(--primary-color); text-decoration: none;">${displayText}</a></div>`;
+
+                    // Add timestamps for video/audio
+                    if (src.timestamps && src.timestamps.length > 0) {
+                        const timeStr = src.timestamps.map(t => `${t.start}-${t.end}`).join(', ');
+                        displayText += ` (${timeStr})`;
+                    }
+
+                    // Make clickable if we have a source_uri
+                    if (sourceUri) {
+                        return `<div style="margin: 0.25rem 0;">• <a href="${escapeHtml(sourceUri)}" target="_blank" style="color: var(--primary-color); text-decoration: underline;">${displayText}</a></div>`;
                     } else {
-                        return `<div>• ${displayText}</div>`;
+                        return `<div style="margin: 0.25rem 0;">• ${displayText}</div>`;
                     }
                 } else {
-                    // Handle string sources
-                    return `<div>• ${escapeHtml(String(src))}</div>`;
+                    // Handle string sources (legacy format)
+                    return `<div style="margin: 0.25rem 0;">• ${escapeHtml(String(src))}</div>`;
                 }
             }).join('');
         }

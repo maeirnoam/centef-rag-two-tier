@@ -52,8 +52,8 @@ from shared.user_management import (
     hash_password,
     update_user
 )
-from retriever_vertex_search import search_two_tier
-from synthesizer import synthesize_answer
+from apps.agent_api.retriever_vertex_search import search_two_tier
+from apps.agent_api.synthesizer import synthesize_answer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1158,8 +1158,17 @@ async def chat(
         # Create or use existing session
         if request.session_id:
             session_id = request.session_id
+            # Update title if this is the first message in the session and title is still default
+            sessions = get_user_sessions(current_user.user_id)
+            current_session = next((s for s in sessions if s.session_id == session_id), None)
+            if current_session and current_session.message_count == 0 and (
+                current_session.title == "New Conversation" or current_session.title == "New Chat"
+            ):
+                # Use first 50 chars of query as title
+                update_session_title(current_user.user_id, session_id, request.query[:50])
+                logger.info(f"Updated session {session_id} title to: {request.query[:50]}")
         else:
-            # Create new session
+            # Create new session with query as title
             session = create_new_session(current_user.user_id, title=request.query[:50])
             session_id = session.session_id
             logger.info(f"Created new session {session_id}")

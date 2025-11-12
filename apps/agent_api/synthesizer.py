@@ -354,14 +354,20 @@ def synthesize_answer(
     # Track sources with their page numbers/timestamps
     source_map = {}  # source_id -> source info with pages list
     
+    # Import manifest to get source_uri
+    from shared.manifest import get_manifest_entry
+
     # Add summaries (no page numbers, represent whole document)
     for summary in summary_results:
         source_id = summary.get('source_id')
         if source_id and source_id not in source_map:
+            # Get manifest entry to retrieve source_uri
+            manifest_entry = get_manifest_entry(source_id)
             source_map[source_id] = {
                 "source_id": source_id,
-                "title": summary.get('title'),
-                "filename": summary.get('filename'),
+                "title": summary.get('title') or (manifest_entry.title if manifest_entry else source_id),
+                "filename": summary.get('filename') or (manifest_entry.filename if manifest_entry else source_id),
+                "source_uri": manifest_entry.source_uri if manifest_entry else None,
                 "type": "summary",
                 "pages": []
             }
@@ -371,12 +377,15 @@ def synthesize_answer(
         source_id = chunk.get('source_id')
         if not source_id:
             continue
-            
+
         if source_id not in source_map:
+            # Get manifest entry to retrieve source_uri
+            manifest_entry = get_manifest_entry(source_id)
             source_map[source_id] = {
                 "source_id": source_id,
-                "title": chunk.get('title'),
-                "filename": chunk.get('filename'),
+                "title": chunk.get('title') or (manifest_entry.title if manifest_entry else source_id),
+                "filename": chunk.get('filename') or (manifest_entry.filename if manifest_entry else source_id),
+                "source_uri": manifest_entry.source_uri if manifest_entry else None,
                 "type": "chunk",
                 "pages": []
             }
