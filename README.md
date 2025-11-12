@@ -32,9 +32,10 @@ See **[CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md)** for complete deployme
 ## 📚 Documentation
 
 ### Deployment & Setup
+- **[DEPLOYMENT_SUCCESS_SUMMARY.md](DEPLOYMENT_SUCCESS_SUMMARY.md)** - ⭐ Complete deployment summary with all fixes and solutions
 - **[CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md)** - Deploy to Google Cloud Run (Production)
 - **[CLOUD_RUN_QUICK_REF.md](CLOUD_RUN_QUICK_REF.md)** - Quick reference for Cloud Run commands
-- **[DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md)** - Overview of deployment architecture
+- **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** - Deployment checklist
 - **[QUICK_START_FRONTEND.md](QUICK_START_FRONTEND.md)** - Local development setup
 - **[QUICK_START.md](QUICK_START.md)** - Backend and pipeline setup
 
@@ -93,6 +94,10 @@ centef-rag-two-tier/
     - Summaries datastore: `centef-summaries-datastore_*_gcs_store`
   - Vertex AI API enabled (for Gemini)
   - Discovery Engine API enabled
+  - **Required IAM roles** (for Cloud Run):
+    - `roles/storage.objectAdmin` - For document uploads and GCS access
+    - `roles/discoveryengine.editor` - For search functionality
+    - `roles/aiplatform.user` - For Gemini API access
 
 ### 2. Environment Configuration
 

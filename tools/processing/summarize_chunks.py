@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 import vertexai
-from vertexai.generative_models import GenerativeModel
+from vertexai.preview.generative_models import GenerativeModel
 from google.cloud import storage
 
 # Add parent directory to path for imports

@@ -11,6 +11,14 @@ from typing import Optional
 
 from PIL import Image
 from google.cloud import storage
+
+# Setup logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Google Cloud Vision API for better OCR (optional, falls back to Tesseract)
 try:
     from google.cloud import vision
@@ -31,12 +39,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.schemas import Chunk, ChunkMetadata, ChunkAnchor, write_chunks_to_jsonl
 from shared.manifest import get_manifest_entry, update_manifest_entry, DocumentStatus
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 # Environment variables
 PROJECT_ID = os.getenv("PROJECT_ID")

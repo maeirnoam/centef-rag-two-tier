@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
 import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 
 # Load environment variables
 load_dotenv()

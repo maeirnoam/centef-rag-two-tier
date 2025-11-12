@@ -10,10 +10,31 @@ Complete guide for deploying the CENTEF RAG system to Google Cloud Run.
   ```powershell
   gcloud services enable run.googleapis.com
   gcloud services enable cloudbuild.googleapis.com
-  gcloud services enable containerregistry.googleapis.com
+  gcloud services enable artifactregistry.googleapis.com
   gcloud services enable aiplatform.googleapis.com
   gcloud services enable discoveryengine.googleapis.com
   gcloud services enable storage.googleapis.com
+  ```
+
+- **Required IAM Permissions**: The Cloud Run service account needs these roles:
+  ```powershell
+  # Get your service account (usually PROJECT_NUMBER-compute@developer.gserviceaccount.com)
+  gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"
+
+  # Storage access for uploads/downloads
+  gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+    --role="roles/storage.objectAdmin"
+
+  # Discovery Engine search access
+  gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+    --role="roles/discoveryengine.editor"
+
+  # Vertex AI access (usually granted by default)
+  gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+    --role="roles/aiplatform.user"
   ```
 
 ### 2. Local Tools
@@ -42,7 +63,7 @@ $env:PROJECT_ID = "your-project-id"
 
 #### Step 2: Deploy Backend API
 ```powershell
-cd centef-rag-two-tier
+cd centef-rag-fresh
 .\deploy-backend.ps1
 ```
 
@@ -180,7 +201,9 @@ CHAT_HISTORY_PATH=chat_history
 
 # Authentication
 JWT_SECRET_KEY=your-secret-key-here
-VALID_API_KEYS=api-key-1,api-key-2
+VALID_API_KEYS=api-key-1|api-key-2  # Use pipe delimiter, NOT commas
+
+# Note: Do NOT set PORT - Cloud Run manages this automatically
 ```
 
 ### Cloud Run Service Configuration
@@ -374,6 +397,55 @@ gcloud logging write user-activity "User login" --severity=INFO
 ```
 
 ## 🐛 Troubleshooting
+
+### Logger Not Defined Error
+**Issue**: `NameError: name 'logger' is not defined` during document processing
+```
+Processing error: name 'logger' is not defined
+```
+
+**Solution**: Ensure logger is initialized before use in all modules. This was fixed in `tools/processing/process_image.py` by moving logger initialization before import-time code that uses it.
+
+### Vertex AI Import Error
+**Issue**: `ImportError: cannot import name 'GenerativeModel' from 'vertexai.generative_models'`
+
+**Solution**: Use the preview API imports:
+```python
+from vertexai.preview.generative_models import GenerativeModel
+```
+
+### Storage Permission Denied
+**Issue**: `Permission 'storage.objects.create' denied`
+
+**Solution**: Grant storage.objectAdmin role:
+```powershell
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+```
+
+### Discovery Engine Permission Denied
+**Issue**: `Permission 'discoveryengine.servingConfigs.search' denied`
+
+**Solution**: Grant discoveryengine.editor role:
+```powershell
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/discoveryengine.editor"
+```
+
+### Environment Variable Syntax Error
+**Issue**: `Bad syntax for dict arg` when deploying
+
+**Solution**: Use pipe delimiter (|) for list variables, not commas:
+```bash
+VALID_API_KEYS=key1|key2|key3
+```
+
+### PORT Environment Variable Conflict
+**Issue**: "The following reserved env names were provided: PORT"
+
+**Solution**: Remove PORT from .env file - Cloud Run sets this automatically.
 
 ### Backend Won't Deploy
 **Issue**: Environment variables not set
