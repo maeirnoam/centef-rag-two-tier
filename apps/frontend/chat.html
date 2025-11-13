@@ -3,13 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat - CENTEF RAG System</title>
+    <title>Chat - CENTEF's AI Platform</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <nav>
         <div class="nav-container">
-            <div class="nav-brand">CENTEF RAG System</div>
+            <div class="nav-brand">
+                <a href="https://centef.org/" target="_blank" class="nav-logo-link">
+                    <img src="images/CENTEF_logo_new.svg" alt="CENTEF Logo" class="nav-logo">
+                </a>
+                <a href="chat.html" class="nav-logo-link">
+                    <img src="images/Munir_logo_new.png" alt="Munir Logo" class="nav-logo">
+                </a>
+            </div>
             <div class="nav-links">
                 <a href="chat.html">Chat</a>
                 <a href="manifest.html" class="admin-only">Manifest</a>
@@ -36,7 +43,7 @@
                 
                 <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border-color);">
                 
-                <h3>Upload Documents</h3>
+                <h3>Contribute to CENTEF's Knowledge Base</h3>
                 <div class="upload-section" id="upload-section">
                     <p>Drag & drop files here or click to browse</p>
                     <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.srt" style="display: none;">
@@ -50,9 +57,27 @@
             <!-- Main Chat Area -->
             <div class="main-content">
                 <div class="chat-messages" id="chat-messages">
-                    <div style="text-align: center; color: var(--text-gray); padding: 2rem;">
-                        <h2>Welcome to CENTEF RAG System</h2>
-                        <p>Ask questions about terrorism financing research documents.</p>
+                    <div id="welcome-screen" style="text-align: center; padding: 3rem 2rem;">
+                        <h2 style="color: var(--text-heading); margin-bottom: 1rem;">Welcome to CENTEF's AI Platform</h2>
+                        <p style="color: var(--text-gray); margin-bottom: 2rem;">Chat with CENTEF's research and knowledge</p>
+
+                        <div style="max-width: 600px; margin: 0 auto;">
+                            <h3 style="font-size: 1rem; color: var(--text-heading); margin-bottom: 1rem;">Suggested Questions:</h3>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left;">
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    What are the main methods used in terrorism financing?
+                                </button>
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    How do financial institutions detect suspicious transactions?
+                                </button>
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    What are the international frameworks for countering terrorism financing?
+                                </button>
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    What role does cryptocurrency play in terrorism financing?
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -84,11 +109,8 @@
             try {
                 sessions = await apiCall('/chat/sessions', 'GET');
                 renderSessions();
-                
-                // Auto-select first session if exists
-                if (sessions.length > 0 && !currentSessionId) {
-                    selectSession(sessions[0].session_id);
-                }
+
+                // Don't auto-select any session - show welcome screen
             } catch (error) {
                 console.error('Failed to load sessions:', error);
                 showError('Failed to load chat sessions');
@@ -144,13 +166,42 @@
             }
         }
         
+        // Handle suggestion click
+        function askSuggestion(button) {
+            const question = button.textContent.trim();
+            document.getElementById('chat-input').value = question;
+            sendMessage();
+        }
+
         // Render messages
         function renderMessages(messages) {
             const chatMessages = document.getElementById('chat-messages');
-            
+
             if (messages.length === 0) {
-                chatMessages.innerHTML = 
-                    '<div style="text-align: center; color: var(--text-gray); padding: 2rem;">No messages yet</div>';
+                chatMessages.innerHTML = `
+                    <div id="welcome-screen" style="text-align: center; padding: 3rem 2rem;">
+                        <h2 style="color: var(--text-heading); margin-bottom: 1rem;">Welcome to CENTEF's AI Platform</h2>
+                        <p style="color: var(--text-gray); margin-bottom: 2rem;">Chat with CENTEF's research and knowledge</p>
+
+                        <div style="max-width: 600px; margin: 0 auto;">
+                            <h3 style="font-size: 1rem; color: var(--text-heading); margin-bottom: 1rem;">Suggested Questions:</h3>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left;">
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    What are the main methods used in terrorism financing?
+                                </button>
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    How do financial institutions detect suspicious transactions?
+                                </button>
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    What are the international frameworks for countering terrorism financing?
+                                </button>
+                                <button class="suggestion-btn" onclick="askSuggestion(this)">
+                                    What role does cryptocurrency play in terrorism financing?
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 return;
             }
             
@@ -171,10 +222,10 @@
                             </div>
                         `;
                     }
-                    
+
                     return `
                         <div class="chat-message assistant">
-                            <div class="message-bubble">${formatAnswer(msg.content)}</div>
+                            <div class="message-bubble">${formatAnswer(msg.content, msg.sources)}</div>
                             ${sourcesHtml}
                         </div>
                     `;
@@ -189,14 +240,29 @@
         async function sendMessage() {
             const input = document.getElementById('chat-input');
             const query = input.value.trim();
-            
+
             if (!query) return;
-            
-            // Create session if none exists
-            if (!currentSessionId) {
-                await createNewSession();
+
+            // Hide welcome screen if it exists (do this FIRST before anything else)
+            const welcomeScreen = document.getElementById('welcome-screen');
+            if (welcomeScreen) {
+                welcomeScreen.remove();
             }
-            
+
+            // Create session if none exists (but don't load its empty history)
+            if (!currentSessionId) {
+                try {
+                    const newSession = await apiCall('/chat/sessions', 'POST');
+                    sessions.unshift(newSession);
+                    currentSessionId = newSession.session_id;
+                    renderSessions(); // Update session list UI
+                } catch (error) {
+                    console.error('Failed to create session:', error);
+                    showError('Failed to create new session');
+                    return;
+                }
+            }
+
             // Add user message to UI immediately
             const chatMessages = document.getElementById('chat-messages');
             chatMessages.innerHTML += `
@@ -205,31 +271,58 @@
                 </div>
             `;
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            
+
             // Clear input
             input.value = '';
             input.disabled = true;
-            
-            // Show loading indicator
+
+            // Show loading indicator with rotating messages
+            const loadingMessages = [
+                "CENTEF's AI researcher is searching the knowledge base...",
+                "Analyzing counter-terrorism financing documents...",
+                "Reviewing regulatory frameworks and compliance guidelines...",
+                "Examining financial intelligence reports...",
+                "Cross-referencing international CTF standards...",
+                "Synthesizing findings from multiple sources..."
+            ];
+
+            let messageIndex = 1; // Start at 1 since we're displaying message 0 first
             const loadingId = 'loading-' + Date.now();
+
             chatMessages.innerHTML += `
                 <div class="chat-message assistant" id="${loadingId}">
-                    <div class="message-bubble">
-                        <div class="spinner" style="width: 20px; height: 20px;"></div>
+                    <div class="message-bubble" style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div class="spinner" style="width: 20px; height: 20px; flex-shrink: 0;"></div>
+                        <div class="loading-text" style="color: var(--text-gray); font-style: italic;">${loadingMessages[0]}</div>
                     </div>
                 </div>
             `;
             chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Rotate loading messages every 2 seconds
+            const loadingInterval = setInterval(() => {
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) {
+                    const messageText = loadingElement.querySelector('.loading-text');
+                    if (messageText) {
+                        messageText.textContent = loadingMessages[messageIndex];
+                        messageIndex = (messageIndex + 1) % loadingMessages.length;
+                    }
+                }
+            }, 2000);
             
             try {
                 const data = await apiCall('/chat', 'POST', {
                     query: query,
                     session_id: currentSessionId
                 });
-                
+
+                // Clear loading interval
+                clearInterval(loadingInterval);
+
                 // Remove loading indicator
                 document.getElementById(loadingId)?.remove();
-                
+
                 // Add assistant response
                 let sourcesHtml = '';
                 if (data.sources && data.sources.length > 0) {
@@ -240,16 +333,18 @@
                         </div>
                     `;
                 }
-                
+
                 chatMessages.innerHTML += `
                     <div class="chat-message assistant">
-                        <div class="message-bubble">${formatAnswer(data.answer)}</div>
+                        <div class="message-bubble">${formatAnswer(data.answer, data.sources)}</div>
                         ${sourcesHtml}
                     </div>
                 `;
-                
+
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             } catch (error) {
+                // Clear loading interval
+                clearInterval(loadingInterval);
                 document.getElementById(loadingId)?.remove();
                 console.error('Failed to send message:', error);
                 showError('Failed to send message');
@@ -360,54 +455,126 @@
         function formatSources(sources) {
             if (!sources || sources.length === 0) return '';
 
-            return sources.map(src => {
+            return sources.map((src, index) => {
+                const citationNum = index + 1;
+
                 // Handle if source is an object
                 if (typeof src === 'object') {
                     const title = src.title || src.filename || src.source_id || 'Unknown Document';
-                    const sourceUri = src.source_uri || '';
+                    const rawSourceUri = src.source_uri || '';
+                    const authorizedUrl = toAuthorizedUrl(rawSourceUri, src.authorized_url);
                     const pages = src.pages || [];
                     const pageRange = src.page_range || '';
 
-                    let displayText = escapeHtml(title);
+                    let displayText = `<strong>[${citationNum}]</strong> ${escapeHtml(title)}`;
 
-                    // Add page information
+                    // Add page information as integers
                     if (pageRange) {
-                        displayText += ` (Pages ${pageRange})`;
+                        // Convert page_range to integers (e.g., "3.0-10.0" -> "3-10")
+                        const cleanPageRange = pageRange.replace(/(\d+)\.0/g, '$1');
+                        displayText += `, ${cleanPageRange}`;
                     } else if (pages && pages.length > 0) {
-                        if (pages.length === 1) {
-                            displayText += ` (Page ${pages[0]})`;
+                        const intPages = pages.map(p => Math.floor(parseFloat(p)));
+                        if (intPages.length === 1) {
+                            displayText += `, page ${intPages[0]}`;
+                        } else if (intPages.length === 2 && intPages[1] - intPages[0] === 1) {
+                            displayText += `, pages ${intPages[0]}-${intPages[1]}`;
                         } else {
-                            displayText += ` (Pages ${pages.join(', ')})`;
+                            displayText += `, pages ${intPages.join(', ')}`;
                         }
                     }
 
-                    // Add timestamps for video/audio
-                    if (src.timestamps && src.timestamps.length > 0) {
-                        const timeStr = src.timestamps.map(t => `${t.start}-${t.end}`).join(', ');
-                        displayText += ` (${timeStr})`;
-                    }
+                    displayText += '.';
 
-                    // Make clickable if we have a source_uri
-                    if (sourceUri) {
-                        return `<div style="margin: 0.25rem 0;">• <a href="${escapeHtml(sourceUri)}" target="_blank" style="color: var(--primary-color); text-decoration: underline;">${displayText}</a></div>`;
+                    // Make clickable if we have a url we can open
+                    if (authorizedUrl) {
+                        return `<div id="source-${citationNum}" style="margin: 0.5rem 0;"><a href="${escapeHtml(authorizedUrl)}" target="_blank" style="color: var(--primary-color); text-decoration: none; hover: text-decoration: underline;">${displayText}</a></div>`;
                     } else {
-                        return `<div style="margin: 0.25rem 0;">• ${displayText}</div>`;
+                        return `<div id="source-${citationNum}" style="margin: 0.5rem 0;">${displayText}</div>`;
                     }
                 } else {
                     // Handle string sources (legacy format)
-                    return `<div style="margin: 0.25rem 0;">• ${escapeHtml(String(src))}</div>`;
+                    return `<div id="source-${citationNum}" style="margin: 0.5rem 0;"><strong>[${citationNum}]</strong> ${escapeHtml(String(src))}</div>`;
                 }
             }).join('');
         }
         
-        function formatAnswer(text) {
+        function toAuthorizedUrl(sourceUri, preferredUrl) {
+            if (preferredUrl) return preferredUrl;
+            if (!sourceUri) return '';
+
+            if (sourceUri.startsWith('http://') || sourceUri.startsWith('https://')) {
+                return sourceUri;
+            }
+
+            if (sourceUri.startsWith('gs://')) {
+                const withoutScheme = sourceUri.slice(5);
+                if (!withoutScheme) return '';
+
+                const [bucket, ...pathParts] = withoutScheme.split('/');
+                if (!bucket) return '';
+
+                const encodedPath = pathParts.length
+                    ? pathParts.map(part => encodeURIComponent(part)).join('/')
+                    : '';
+
+                return encodedPath
+                    ? `https://storage.cloud.google.com/${bucket}/${encodedPath}`
+                    : `https://storage.cloud.google.com/${bucket}`;
+            }
+
+            return sourceUri;
+        }
+        
+        function formatAnswer(text, sources) {
             // Convert markdown-style bold and italic
             text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-            
+
+            // Parse inline citations and convert to numbered format with page anchors
+            // Match patterns like [Document Title, Page X] or [Document Title, Pages X-Y]
+            text = text.replace(/\[([^\]]+?),\s*Page(?:s)?\s+([0-9\.\-,\s]+)\]/gi, (match, docTitle, pageInfo) => {
+                // Find the source index by matching document title
+                const sourceIndex = sources ? sources.findIndex(src => {
+                    const title = src.title || src.filename || src.source_id || '';
+                    return title.toLowerCase().includes(docTitle.toLowerCase().trim()) ||
+                           docTitle.toLowerCase().trim().includes(title.toLowerCase());
+                }) : -1;
+
+                if (sourceIndex >= 0) {
+                    const citationNum = sourceIndex + 1;
+                    // Clean up page info - remove decimals (.0) and extra spaces
+                    const cleanPageInfo = pageInfo.trim().replace(/(\d+)\.0/g, '$1').replace(/\s+/g, ' ');
+                    const pageLabel = cleanPageInfo.includes('-') || cleanPageInfo.includes(',') ? 'pages' : 'page';
+                    return `<a href="#source-${citationNum}" style="color: var(--primary-color); text-decoration: none; font-weight: 500;" onclick="document.getElementById('source-${citationNum}').scrollIntoView({behavior: 'smooth'}); return false;">[${citationNum}, ${pageLabel} ${cleanPageInfo}]</a>`;
+                }
+                return match; // Keep original if not found
+            });
+
+            // Also handle simpler citation formats like [Document Title] without page numbers
+            text = text.replace(/\[([^\]]+?)\]/g, (match, docTitle) => {
+                // Skip if it's already a citation number (e.g., [1])
+                if (/^\d+$/.test(docTitle.trim())) {
+                    return match;
+                }
+
+                // Find the source index by matching document title
+                const sourceIndex = sources ? sources.findIndex(src => {
+                    const title = src.title || src.filename || src.source_id || '';
+                    return title.toLowerCase().includes(docTitle.toLowerCase().trim()) ||
+                           docTitle.toLowerCase().trim().includes(title.toLowerCase());
+                }) : -1;
+
+                if (sourceIndex >= 0) {
+                    const citationNum = sourceIndex + 1;
+                    return `<a href="#source-${citationNum}" style="color: var(--primary-color); text-decoration: none; font-weight: 500;" onclick="document.getElementById('source-${citationNum}').scrollIntoView({behavior: 'smooth'}); return false;">[${citationNum}]</a>`;
+                }
+                return match; // Keep original if not found
+            });
+
             // Convert line breaks
             text = text.replace(/\n/g, '<br>');
-            
+
             return text;
         }
     </script>
