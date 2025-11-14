@@ -193,6 +193,9 @@
                                 <td>${escapeHtml(doc.date || '-')}</td>
                                 <td><span class="status-badge status-${doc.status}">${escapeHtml(doc.status)}</span></td>
                                 <td>
+                                    <button class="btn btn-sm btn-secondary" onclick="toggleMetadata('${doc.source_id}')" style="margin-right: 0.25rem;">
+                                        View More
+                                    </button>
                                     <button class="btn btn-sm btn-primary" onclick="editDocument('${doc.source_id}')">
                                         Edit
                                     </button>
@@ -206,6 +209,69 @@
                                             Delete
                                         </button>
                                     ` : ''}
+                                </td>
+                            </tr>
+                            <tr id="metadata-${doc.source_id}" class="metadata-row" style="display: none;">
+                                <td colspan="6" style="background-color: var(--bg-light); padding: 1.5rem;">
+                                    <div style="max-width: 100%;">
+                                        <h3 style="margin-bottom: 1rem; color: var(--text-heading);">Document Metadata</h3>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                                            <div>
+                                                <strong>Source ID:</strong><br>
+                                                <code style="word-break: break-all;">${escapeHtml(doc.source_id)}</code>
+                                            </div>
+                                            <div>
+                                                <strong>Title:</strong><br>
+                                                ${escapeHtml(doc.title || 'N/A')}
+                                            </div>
+                                            <div>
+                                                <strong>Author:</strong><br>
+                                                ${escapeHtml(doc.author || 'N/A')}
+                                            </div>
+                                            <div>
+                                                <strong>Organization:</strong><br>
+                                                ${escapeHtml(doc.organization || 'N/A')}
+                                            </div>
+                                            <div>
+                                                <strong>Date:</strong><br>
+                                                ${escapeHtml(doc.date || 'N/A')}
+                                            </div>
+                                            <div>
+                                                <strong>Publisher:</strong><br>
+                                                ${escapeHtml(doc.publisher || 'N/A')}
+                                            </div>
+                                            <div>
+                                                <strong>Status:</strong><br>
+                                                <span class="status-badge status-${doc.status}">${escapeHtml(doc.status)}</span>
+                                            </div>
+                                            <div>
+                                                <strong>Tags:</strong><br>
+                                                ${doc.tags && doc.tags.length > 0 ? doc.tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join(' ') : 'N/A'}
+                                            </div>
+                                        </div>
+                                        ${doc.summary_text ? `
+                                            <div style="margin-top: 1rem;">
+                                                <strong>Summary:</strong>
+                                                <div style="background-color: var(--bg-white); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto;">
+                                                    ${escapeHtml(doc.summary_text).replace(/\n/g, '<br>')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${doc.notes ? `
+                                            <div style="margin-top: 1rem;">
+                                                <strong>Notes:</strong>
+                                                <div style="background-color: var(--bg-white); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; border: 1px solid var(--border-color);">
+                                                    ${escapeHtml(doc.notes).replace(/\n/g, '<br>')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${doc.source_uri ? `
+                                            <div style="margin-top: 1rem;">
+                                                <strong>Source URI:</strong><br>
+                                                <code style="word-break: break-all;">${escapeHtml(doc.source_uri)}</code>
+                                            </div>
+                                        ` : ''}
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -329,6 +395,20 @@
             }
         }
         
+        // Toggle metadata visibility
+        function toggleMetadata(sourceId) {
+            const metadataRow = document.getElementById(`metadata-${sourceId}`);
+            const button = event.target;
+
+            if (metadataRow.style.display === 'none') {
+                metadataRow.style.display = 'table-row';
+                button.textContent = 'Hide Details';
+            } else {
+                metadataRow.style.display = 'none';
+                button.textContent = 'View More';
+            }
+        }
+
         // Utility functions
         function escapeHtml(text) {
             if (!text) return '';
@@ -407,5 +487,22 @@ Type "DELETE" to confirm:`;
             }
         }
     </script>
+
+    <style>
+        .metadata-row td {
+            border-top: none !important;
+        }
+
+        .tag-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+    </style>
 </body>
 </html>
