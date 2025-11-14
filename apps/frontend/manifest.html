@@ -66,8 +66,8 @@
     </div>
     
     <!-- Edit Modal -->
-    <div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-        <div style="max-width: 600px; margin: 5rem auto; background: white; border-radius: 0.5rem; padding: 2rem;">
+    <div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto; padding: 2rem 0;">
+        <div style="max-width: 600px; width: 90%; margin: 2rem auto; background: white; border-radius: 0.5rem; padding: 2rem; max-height: calc(100vh - 4rem); overflow-y: auto;">
             <h2 id="modal-title">Edit Document</h2>
             <form id="edit-form">
                 <input type="hidden" id="edit-source-id">
@@ -89,7 +89,7 @@
                 
                 <div class="form-group">
                     <label for="edit-date">Date</label>
-                    <input type="text" id="edit-date" placeholder="YYYY-MM-DD">
+                    <input type="text" id="edit-date" placeholder="MM-DD-YYYY" pattern="\d{2}-\d{2}-\d{4}" title="Please use MM-DD-YYYY format (e.g., 12-31-2024)">
                 </div>
                 
                 <div class="form-group">
@@ -134,9 +134,28 @@
     <script>
         requireAuth();
         displayUserInfo();
-        
+
         let manifestData = [];
-        
+
+        // Date conversion helpers
+        function formatDateForDisplay(isoDate) {
+            // Convert YYYY-MM-DD to MM-DD-YYYY
+            if (!isoDate || !isoDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                return isoDate || '-';
+            }
+            const [year, month, day] = isoDate.split('-');
+            return `${month}-${day}-${year}`;
+        }
+
+        function formatDateForStorage(displayDate) {
+            // Convert MM-DD-YYYY to YYYY-MM-DD
+            if (!displayDate || !displayDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                return displayDate || '';
+            }
+            const [month, day, year] = displayDate.split('-');
+            return `${year}-${month}-${day}`;
+        }
+
         // Load manifest on page load
         window.addEventListener('DOMContentLoaded', () => {
             loadManifest();
@@ -190,7 +209,7 @@
                                 <td><code>${escapeHtml(doc.source_id)}</code></td>
                                 <td>${escapeHtml(doc.title || 'Untitled')}</td>
                                 <td>${escapeHtml(doc.author || '-')}</td>
-                                <td>${escapeHtml(doc.date || '-')}</td>
+                                <td>${formatDateForDisplay(doc.date)}</td>
                                 <td><span class="status-badge status-${doc.status}">${escapeHtml(doc.status)}</span></td>
                                 <td>
                                     <button class="btn btn-sm btn-secondary" onclick="toggleMetadata('${doc.source_id}')" style="margin-right: 0.25rem;">
@@ -234,7 +253,7 @@
                                             </div>
                                             <div>
                                                 <strong>Date:</strong><br>
-                                                ${escapeHtml(doc.date || 'N/A')}
+                                                ${formatDateForDisplay(doc.date)}
                                             </div>
                                             <div>
                                                 <strong>Publisher:</strong><br>
@@ -249,11 +268,11 @@
                                                 ${doc.tags && doc.tags.length > 0 ? doc.tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join(' ') : 'N/A'}
                                             </div>
                                         </div>
-                                        ${doc.summary_text ? `
+                                        ${doc.summary_path ? `
                                             <div style="margin-top: 1rem;">
                                                 <strong>Summary:</strong>
-                                                <div style="background-color: var(--bg-white); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto;">
-                                                    ${escapeHtml(doc.summary_text).replace(/\n/g, '<br>')}
+                                                <div id="summary-${doc.source_id}" style="background-color: var(--bg-white); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto;">
+                                                    <em style="color: var(--text-gray);">Loading...</em>
                                                 </div>
                                             </div>
                                         ` : ''}
@@ -265,10 +284,14 @@
                                                 </div>
                                             </div>
                                         ` : ''}
-                                        ${doc.source_uri ? `
+                                        ${doc.source_uri || doc.authorized_url ? `
                                             <div style="margin-top: 1rem;">
-                                                <strong>Source URI:</strong><br>
-                                                <code style="word-break: break-all;">${escapeHtml(doc.source_uri)}</code>
+                                                <strong>Source Document:</strong><br>
+                                                ${getAuthorizedUrl(doc.source_uri, doc.authorized_url) ? `
+                                                    <a href="${escapeHtml(getAuthorizedUrl(doc.source_uri, doc.authorized_url))}" target="_blank" style="color: var(--primary-color); text-decoration: none;">
+                                                        📄 View Document
+                                                    </a>
+                                                ` : `<code style="word-break: break-all;">${escapeHtml(doc.source_uri)}</code>`}
                                             </div>
                                         ` : ''}
                                     </div>
@@ -302,12 +325,12 @@
         function editDocument(sourceId) {
             const doc = manifestData.find(d => d.source_id === sourceId);
             if (!doc) return;
-            
+
             document.getElementById('edit-source-id').value = doc.source_id;
             document.getElementById('edit-title').value = doc.title || '';
             document.getElementById('edit-author').value = doc.author || '';
             document.getElementById('edit-organization').value = doc.organization || '';
-            document.getElementById('edit-date').value = doc.date || '';
+            document.getElementById('edit-date').value = formatDateForDisplay(doc.date);
             document.getElementById('edit-publisher').value = doc.publisher || '';
             document.getElementById('edit-tags').value = doc.tags?.join(', ') || '';
             document.getElementById('edit-status').value = doc.status || '';
@@ -334,18 +357,18 @@
         // Save document changes
         document.getElementById('edit-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const sourceId = document.getElementById('edit-source-id').value;
             const tags = document.getElementById('edit-tags').value
                 .split(',')
                 .map(t => t.trim())
                 .filter(t => t);
-            
+
             const updates = {
                 title: document.getElementById('edit-title').value,
                 author: document.getElementById('edit-author').value,
                 organization: document.getElementById('edit-organization').value,
-                date: document.getElementById('edit-date').value,
+                date: formatDateForStorage(document.getElementById('edit-date').value),
                 publisher: document.getElementById('edit-publisher').value,
                 tags: tags,
                 notes: document.getElementById('edit-notes').value
@@ -396,17 +419,71 @@
         }
         
         // Toggle metadata visibility
-        function toggleMetadata(sourceId) {
+        async function toggleMetadata(sourceId) {
             const metadataRow = document.getElementById(`metadata-${sourceId}`);
             const button = event.target;
 
             if (metadataRow.style.display === 'none') {
                 metadataRow.style.display = 'table-row';
                 button.textContent = 'Hide Details';
+
+                // Load summary if not already loaded
+                const summaryContainer = document.getElementById(`summary-${sourceId}`);
+                if (summaryContainer && !summaryContainer.dataset.loaded) {
+                    summaryContainer.innerHTML = '<div style="padding: 1rem; color: var(--text-gray);"><div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div></div>';
+
+                    try {
+                        const doc = manifestData.find(d => d.source_id === sourceId);
+                        if (doc && doc.summary_path) {
+                            // Fetch summary from API endpoint
+                            const summaryData = await apiCall(`/manifest/${sourceId}/summary`, 'GET');
+
+                            if (summaryData && summaryData.summary_text) {
+                                summaryContainer.innerHTML = escapeHtml(summaryData.summary_text).replace(/\n/g, '<br>');
+                                summaryContainer.dataset.loaded = 'true';
+                            } else {
+                                summaryContainer.innerHTML = '<em style="color: var(--text-gray);">No summary text found</em>';
+                            }
+                        } else {
+                            summaryContainer.innerHTML = '<em style="color: var(--text-gray);">No summary available</em>';
+                        }
+                    } catch (error) {
+                        console.error('Error loading summary:', error);
+                        summaryContainer.innerHTML = `<em style="color: var(--text-gray);">Error: ${error.message}</em>`;
+                    }
+                }
             } else {
                 metadataRow.style.display = 'none';
                 button.textContent = 'View More';
             }
+        }
+
+        // Get authorized URL for viewing documents
+        function getAuthorizedUrl(sourceUri, preferredUrl) {
+            if (preferredUrl) return preferredUrl;
+            if (!sourceUri) return '';
+
+            if (sourceUri.startsWith('http://') || sourceUri.startsWith('https://')) {
+                return sourceUri;
+            }
+
+            if (sourceUri.startsWith('gs://')) {
+                const withoutScheme = sourceUri.slice(5);
+                if (!withoutScheme) return '';
+
+                const [bucket, ...pathParts] = withoutScheme.split('/');
+                if (!bucket) return '';
+
+                const encodedPath = pathParts.length
+                    ? pathParts.map(part => encodeURIComponent(part)).join('/')
+                    : '';
+
+                return encodedPath
+                    ? `https://storage.cloud.google.com/${bucket}/${encodedPath}`
+                    : `https://storage.cloud.google.com/${bucket}`;
+            }
+
+            return sourceUri;
         }
 
         // Utility functions

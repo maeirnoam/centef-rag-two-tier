@@ -36,6 +36,7 @@ from shared.chat_history import (
     save_message,
     get_conversation_history,
     get_user_sessions,
+    get_session_metadata,
     create_new_session,
     delete_session,
     update_session_title
@@ -96,8 +97,13 @@ def process_uploaded_document(source_id: str, source_uri: str, mimetype: str):
         source_uri: GCS URI of uploaded file
         mimetype: File MIME type
     """
+    import time
     logger.info(f"Starting background processing for {source_id}")
-    
+
+    # Add a small delay to ensure manifest entry is fully written
+    # This helps avoid race conditions when multiple files are uploaded quickly
+    time.sleep(2)
+
     try:
         # Import processing functions
         from tools.processing.process_pdf import process_pdf
@@ -105,7 +111,24 @@ def process_uploaded_document(source_id: str, source_uri: str, mimetype: str):
         from tools.processing.process_image import process_image
         from tools.processing.process_srt import process_srt
         from tools.processing.summarize_chunks import summarize_chunks
-        
+
+        # Verify manifest entry exists before processing
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                from shared.manifest import get_manifest_entry
+                entry = get_manifest_entry(source_id)
+                if entry:
+                    logger.info(f"Manifest entry confirmed for {source_id}")
+                    break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Manifest entry not found for {source_id}, retrying... (attempt {attempt+1}/{max_retries})")
+                    time.sleep(2)
+                else:
+                    logger.error(f"Manifest entry not found for {source_id} after {max_retries} attempts")
+                    raise
+
         # Step 1: Process to chunks based on file type
         logger.info(f"[1/2] Processing {source_id} to chunks...")
         
@@ -134,10 +157,13 @@ def process_uploaded_document(source_id: str, source_uri: str, mimetype: str):
     except Exception as e:
         logger.error(f"❌ Background processing failed for {source_id}: {e}", exc_info=True)
         # Update manifest status to error
-        update_manifest_entry(source_id, {
-            "status": DocumentStatus.ERROR,
-            "notes": f"Processing error: {str(e)}"
-        })
+        try:
+            update_manifest_entry(source_id, {
+                "status": DocumentStatus.ERROR,
+                "notes": f"Processing error: {str(e)}"
+            })
+        except Exception as update_error:
+            logger.error(f"Failed to update manifest entry for {source_id}: {update_error}")
 
 
 # ============================================================================
@@ -271,18 +297,97 @@ def get_manifest(source_id: str):
         )
 
 
+@app.get("/manifest/{source_id}/summary")
+def get_summary(source_id: str):
+    """
+    Get the summary text for a document by fetching from GCS.
+
+    Args:
+        source_id: The source_id to retrieve summary for
+
+    Returns:
+        JSON with summary_text field
+    """
+    logger.info(f"GET /manifest/{source_id}/summary")
+
+    try:
+        from google.cloud import storage
+        import json
+
+        entry = get_manifest_entry(source_id)
+
+        if not entry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Manifest entry not found for source_id={source_id}"
+            )
+
+        if not entry.summary_path:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No summary available for source_id={source_id}"
+            )
+
+        # Parse GCS path
+        if not entry.summary_path.startswith('gs://'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid summary path format"
+            )
+
+        path_without_scheme = entry.summary_path[5:]  # Remove 'gs://'
+        bucket_name, blob_path = path_without_scheme.split('/', 1)
+
+        # Fetch from GCS
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+
+        if not blob.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Summary file not found in GCS"
+            )
+
+        content = blob.download_as_text()
+
+        # Parse JSONL and extract summary_text
+        lines = content.strip().split('\n')
+        for line in lines:
+            try:
+                data = json.loads(line)
+                if 'summary_text' in data:
+                    return {"summary_text": data['summary_text']}
+            except json.JSONDecodeError:
+                continue
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No summary_text found in summary file"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting summary: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting summary: {str(e)}"
+        )
+
+
 @app.put("/manifest/{source_id}", response_model=ManifestEntryResponse)
 def update_manifest(source_id: str, update_request: ManifestUpdateRequest):
     """
     Update a manifest entry.
-    
+
     NOTE: Changing 'approved' status requires admin role. Use /admin/manifest/{source_id}/approve endpoint.
     When status is set to "pending_embedding", triggers the embedding pipeline.
-    
+
     Args:
         source_id: The source_id to update
         update_request: Fields to update
-    
+
     Returns:
         Updated manifest entry
     """
@@ -1159,8 +1264,7 @@ async def chat(
         if request.session_id:
             session_id = request.session_id
             # Update title if this is the first message in the session and title is still default
-            sessions = get_user_sessions(current_user.user_id)
-            current_session = next((s for s in sessions if s.session_id == session_id), None)
+            current_session = get_session_metadata(current_user.user_id, session_id)
             if current_session and current_session.message_count == 0 and (
                 current_session.title == "New Conversation" or current_session.title == "New Chat"
             ):
