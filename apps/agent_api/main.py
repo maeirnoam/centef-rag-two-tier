@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import FastAPI, HTTPException, status, Depends, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException, status, Depends, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -348,6 +348,7 @@ class ManifestEntryResponse(BaseModel):
     date: Optional[str] = None
     publisher: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    description: Optional[str] = None
     data_path: Optional[str] = None
     summary_path: Optional[str] = None
 
@@ -363,6 +364,7 @@ class ManifestUpdateRequest(BaseModel):
     date: Optional[str] = None
     publisher: Optional[str] = None
     tags: Optional[List[str]] = None
+    description: Optional[str] = None
 
 
 class ManifestCreateRequest(BaseModel):
@@ -374,6 +376,7 @@ class ManifestCreateRequest(BaseModel):
     source_uri: str
     ingested_by: str = "frontend"
     notes: str = ""
+    description: Optional[str] = None
 
 
 @app.get("/")
@@ -652,19 +655,21 @@ def create_manifest(create_request: ManifestCreateRequest):
 async def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user)
 ):
     """
     Upload a document file to GCS and create manifest entry.
     Automatically triggers processing pipeline in background.
-    
+
     Supports: PDF, DOCX, DOC, PNG, JPG, JPEG, SRT
-    
+
     Args:
         background_tasks: FastAPI background tasks
         file: Uploaded file
+        description: Optional description of the document
         current_user: Authenticated user
-    
+
     Returns:
         Created manifest entry
     """
@@ -727,6 +732,7 @@ async def upload_file(
             source_uri=source_uri,
             ingested_by=current_user.email,
             notes=f"Uploaded via web interface by {current_user.email}",
+            description=description,
             status=DocumentStatus.PENDING_PROCESSING
         )
         
@@ -761,8 +767,9 @@ async def upload_file(
 async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    language: str = "ar-SA",
-    translate: str = "en",
+    language: str = Form("ar-SA"),
+    translate: str = Form("en"),
+    description: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -779,6 +786,7 @@ async def upload_video(
         file: Video file (MP4, M4A, etc.)
         language: Source language code (default: ar-SA for Arabic)
         translate: Target language for translation (default: en for English)
+        description: Optional description of the video
         current_user: Authenticated user
     """
     logger.info(f"POST /upload/video file={file.filename} by user={current_user.user_id}")
@@ -823,6 +831,7 @@ async def upload_video(
             source_uri=source_uri,
             ingested_by=current_user.email,
             notes=f"Video uploaded via web interface by {current_user.email}. Language: {language}, Translate to: {translate}",
+            description=description,
             status=DocumentStatus.PENDING_PROCESSING
         )
 
@@ -858,8 +867,9 @@ async def upload_video(
 async def upload_audio(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    language: str = "ar-SA",
-    translate: str = "en",
+    language: str = Form("ar-SA"),
+    translate: str = Form("en"),
+    description: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -875,6 +885,7 @@ async def upload_audio(
         file: Audio file (WAV, MP3, M4A, etc.)
         language: Source language code (default: ar-SA for Arabic)
         translate: Target language for translation (default: en for English)
+        description: Optional description of the audio
         current_user: Authenticated user
     """
     logger.info(f"POST /upload/audio file={file.filename} by user={current_user.user_id}")
@@ -919,6 +930,7 @@ async def upload_audio(
             source_uri=source_uri,
             ingested_by=current_user.email,
             notes=f"Audio uploaded via web interface by {current_user.email}. Language: {language}, Translate to: {translate}",
+            description=description,
             status=DocumentStatus.PENDING_PROCESSING
         )
 
@@ -954,6 +966,7 @@ class YouTubeUploadRequest(BaseModel):
     url: str = Field(..., description="YouTube video URL")
     language: str = Field(default="ar-SA", description="Source language code")
     translate: str = Field(default="en", description="Target language for translation")
+    description: Optional[str] = Field(default=None, description="Optional description of the video")
 
 
 @app.post("/upload/youtube")
@@ -1009,6 +1022,7 @@ async def upload_youtube(
             source_uri=request.url,
             ingested_by=current_user.email,
             notes=f"YouTube video uploaded via web interface by {current_user.email}. Language: {request.language}, Translate to: {request.translate}",
+            description=request.description,
             status=DocumentStatus.PENDING_PROCESSING
         )
 

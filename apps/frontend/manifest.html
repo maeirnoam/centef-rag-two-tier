@@ -102,7 +102,12 @@
                     <label for="edit-tags">Tags (comma-separated)</label>
                     <input type="text" id="edit-tags" placeholder="terrorism, financing, policy">
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="edit-description">Description</label>
+                    <textarea id="edit-description" placeholder="Optional description of the document" rows="3"></textarea>
+                </div>
+
                 <div class="form-group admin-only">
                     <label for="edit-status">Status</label>
                     <select id="edit-status">
@@ -269,6 +274,14 @@
                                                 ${doc.tags && doc.tags.length > 0 ? doc.tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join(' ') : 'N/A'}
                                             </div>
                                         </div>
+                                        ${doc.description ? `
+                                            <div style="margin-top: 1rem;">
+                                                <strong>Description:</strong>
+                                                <div style="background-color: var(--bg-white); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; border: 1px solid var(--border-color);">
+                                                    ${escapeHtml(doc.description).replace(/\n/g, '<br>')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
                                         ${doc.summary_path ? `
                                             <div style="margin-top: 1rem;">
                                                 <strong>Summary:</strong>
@@ -334,6 +347,7 @@
             document.getElementById('edit-date').value = formatDateForDisplay(doc.date);
             document.getElementById('edit-publisher').value = doc.publisher || '';
             document.getElementById('edit-tags').value = doc.tags?.join(', ') || '';
+            document.getElementById('edit-description').value = doc.description || '';
             document.getElementById('edit-status').value = doc.status || '';
             document.getElementById('edit-notes').value = doc.notes || '';
             
@@ -372,6 +386,7 @@
                 date: formatDateForStorage(document.getElementById('edit-date').value),
                 publisher: document.getElementById('edit-publisher').value,
                 tags: tags,
+                description: document.getElementById('edit-description').value,
                 notes: document.getElementById('edit-notes').value
             };
             

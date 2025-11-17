@@ -43,11 +43,26 @@
                 <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
                     Upload PDF, Word documents, images, or subtitle files
                 </p>
-                <div class="upload-section" id="upload-section" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <p style="font-size: 1rem; margin-bottom: 1rem;">Drag & drop files here or click to browse</p>
+                <div style="margin-bottom: 1rem;">
+                    <label for="document-description" style="font-size: 0.9rem; color: var(--text-gray); display: block; margin-bottom: 0.5rem;">
+                        Description (optional):
+                    </label>
+                    <textarea id="document-description" placeholder="Add an optional description for this document..."
+                              style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 0.25rem; min-height: 80px; font-family: inherit; resize: vertical;"></textarea>
+                </div>
+                <div class="upload-section" id="upload-section" style="min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="font-size: 1rem; margin-bottom: 1rem;">Select files to upload</p>
                     <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.srt" style="display: none;">
-                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
-                        Choose Files
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+                            Choose Files
+                        </button>
+                        <span id="file-selected-count" style="color: var(--text-gray); font-size: 0.875rem;"></span>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button class="btn btn-primary" onclick="submitDocumentUpload()" style="min-width: 200px;">
+                        Upload Documents
                     </button>
                 </div>
                 <div id="upload-status" style="margin-top: 1rem;"></div>
@@ -59,14 +74,14 @@
                 <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
                     Upload video files for automatic transcription and translation
                 </p>
-                <div class="upload-section" id="video-upload-section" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <p style="font-size: 1rem; margin-bottom: 1rem;">Drag & drop video files here or click to browse</p>
-                    <input type="file" id="video-input" accept=".mp4,.m4a,.mov,.avi,.mkv" style="display: none;">
-                    <button class="btn btn-primary" onclick="document.getElementById('video-input').click()">
-                        Choose Video File
-                    </button>
+                <div style="margin-bottom: 1rem;">
+                    <label for="video-description" style="font-size: 0.9rem; color: var(--text-gray); display: block; margin-bottom: 0.5rem;">
+                        Description (optional):
+                    </label>
+                    <textarea id="video-description" placeholder="Add an optional description for this video..."
+                              style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 0.25rem; min-height: 80px; font-family: inherit; resize: vertical;"></textarea>
                 </div>
-                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                <div style="margin-bottom: 1rem; display: flex; gap: 1rem; justify-content: center;">
                     <div>
                         <label for="video-language" style="font-size: 0.9rem; color: var(--text-gray);">Source Language:</label>
                         <select id="video-language" style="margin-left: 0.5rem; padding: 0.25rem;">
@@ -86,6 +101,21 @@
                         </select>
                     </div>
                 </div>
+                <div class="upload-section" id="video-upload-section" style="min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="font-size: 1rem; margin-bottom: 1rem;">Select video file to upload</p>
+                    <input type="file" id="video-input" accept=".mp4,.m4a,.mov,.avi,.mkv" style="display: none;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('video-input').click()">
+                            Choose Video File
+                        </button>
+                        <span id="video-selected-name" style="color: var(--text-gray); font-size: 0.875rem;"></span>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button class="btn btn-primary" onclick="submitVideoUpload()" style="min-width: 200px;">
+                        Upload Video
+                    </button>
+                </div>
                 <div id="video-status" style="margin-top: 1rem;"></div>
             </div>
 
@@ -95,14 +125,14 @@
                 <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
                     Upload audio files for automatic transcription and translation
                 </p>
-                <div class="upload-section" id="audio-upload-section" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <p style="font-size: 1rem; margin-bottom: 1rem;">Drag & drop audio files here or click to browse</p>
-                    <input type="file" id="audio-input" accept=".wav,.mp3,.m4a,.flac,.ogg" style="display: none;">
-                    <button class="btn btn-primary" onclick="document.getElementById('audio-input').click()">
-                        Choose Audio File
-                    </button>
+                <div style="margin-bottom: 1rem;">
+                    <label for="audio-description" style="font-size: 0.9rem; color: var(--text-gray); display: block; margin-bottom: 0.5rem;">
+                        Description (optional):
+                    </label>
+                    <textarea id="audio-description" placeholder="Add an optional description for this audio..."
+                              style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 0.25rem; min-height: 80px; font-family: inherit; resize: vertical;"></textarea>
                 </div>
-                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                <div style="margin-bottom: 1rem; display: flex; gap: 1rem; justify-content: center;">
                     <div>
                         <label for="audio-language" style="font-size: 0.9rem; color: var(--text-gray);">Source Language:</label>
                         <select id="audio-language" style="margin-left: 0.5rem; padding: 0.25rem;">
@@ -122,6 +152,21 @@
                         </select>
                     </div>
                 </div>
+                <div class="upload-section" id="audio-upload-section" style="min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="font-size: 1rem; margin-bottom: 1rem;">Select audio file to upload</p>
+                    <input type="file" id="audio-input" accept=".wav,.mp3,.m4a,.flac,.ogg" style="display: none;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('audio-input').click()">
+                            Choose Audio File
+                        </button>
+                        <span id="audio-selected-name" style="color: var(--text-gray); font-size: 0.875rem;"></span>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button class="btn btn-primary" onclick="submitAudioUpload()" style="min-width: 200px;">
+                        Upload Audio
+                    </button>
+                </div>
                 <div id="audio-status" style="margin-top: 1rem;"></div>
             </div>
 
@@ -132,9 +177,14 @@
                     Enter a YouTube URL for automatic transcription and translation
                 </p>
                 <div style="max-width: 600px; margin: 0 auto;">
-                    <input type="url" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..."
-                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.25rem; margin-bottom: 1rem;">
-                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; justify-content: center;">
+                    <div style="margin-bottom: 1rem;">
+                        <label for="youtube-description" style="font-size: 0.9rem; color: var(--text-gray); display: block; margin-bottom: 0.5rem;">
+                            Description (optional):
+                        </label>
+                        <textarea id="youtube-description" placeholder="Add an optional description for this YouTube video..."
+                                  style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 0.25rem; min-height: 80px; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem; display: flex; gap: 1rem; justify-content: center;">
                         <div>
                             <label for="youtube-language" style="font-size: 0.9rem; color: var(--text-gray);">Source Language:</label>
                             <select id="youtube-language" style="margin-left: 0.5rem; padding: 0.25rem;">
@@ -154,6 +204,8 @@
                             </select>
                         </div>
                     </div>
+                    <input type="url" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..."
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.25rem; margin-bottom: 1rem;">
                     <button class="btn btn-primary" onclick="handleYouTubeUpload()" style="width: 100%;">
                         Process YouTube Video
                     </button>
@@ -188,45 +240,52 @@
         });
 
         function setupFileUpload() {
-            const uploadSection = document.getElementById('upload-section');
             const fileInput = document.getElementById('file-input');
+            const fileCount = document.getElementById('file-selected-count');
 
-            // Drag and drop
-            uploadSection.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadSection.classList.add('dragover');
-            });
-
-            uploadSection.addEventListener('dragleave', () => {
-                uploadSection.classList.remove('dragover');
-            });
-
-            uploadSection.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadSection.classList.remove('dragover');
-                handleFiles(e.dataTransfer.files);
-            });
-
-            // Click to browse
-            uploadSection.addEventListener('click', (e) => {
-                if (e.target === uploadSection || e.target.tagName === 'P') {
-                    fileInput.click();
+            // Update file count when files are selected
+            fileInput.addEventListener('change', () => {
+                const count = fileInput.files.length;
+                if (count > 0) {
+                    fileCount.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+                } else {
+                    fileCount.textContent = '';
                 }
             });
+        }
 
-            fileInput.addEventListener('change', () => {
-                handleFiles(fileInput.files);
-            });
+        // Submit document upload
+        function submitDocumentUpload() {
+            const fileInput = document.getElementById('file-input');
+            const files = fileInput.files;
+
+            if (files.length === 0) {
+                const statusDiv = document.getElementById('upload-status');
+                statusDiv.innerHTML = `
+                    <div class="message message-error">
+                        Please select at least one file to upload
+                    </div>
+                `;
+                setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+                return;
+            }
+
+            handleFiles(files);
         }
 
         // Handle file uploads
         async function handleFiles(files) {
             const statusDiv = document.getElementById('upload-status');
+            const descriptionInput = document.getElementById('document-description');
+            const description = descriptionInput.value.trim();
             statusDiv.innerHTML = '';
 
             for (const file of files) {
                 const formData = new FormData();
                 formData.append('file', file);
+                if (description) {
+                    formData.append('description', description);
+                }
 
                 statusDiv.innerHTML += `
                     <div style="margin-top: 0.5rem; font-size: 0.875rem;">
@@ -267,8 +326,10 @@
                 }
             }
 
-            // Clear file input
+            // Clear file input, description, and file count
             document.getElementById('file-input').value = '';
+            document.getElementById('document-description').value = '';
+            document.getElementById('file-selected-count').textContent = '';
 
             // Clear status after 5 seconds
             setTimeout(() => {
@@ -290,46 +351,40 @@
         });
 
         function setupVideoUpload() {
-            const videoSection = document.getElementById('video-upload-section');
             const videoInput = document.getElementById('video-input');
+            const videoName = document.getElementById('video-selected-name');
 
-            // Drag and drop
-            videoSection.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                videoSection.classList.add('dragover');
-            });
-
-            videoSection.addEventListener('dragleave', () => {
-                videoSection.classList.remove('dragover');
-            });
-
-            videoSection.addEventListener('drop', (e) => {
-                e.preventDefault();
-                videoSection.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleVideoUpload(files[0]);
-                }
-            });
-
-            // Click to browse
-            videoSection.addEventListener('click', (e) => {
-                if (e.target === videoSection || e.target.tagName === 'P') {
-                    videoInput.click();
-                }
-            });
-
+            // Update file name when file is selected
             videoInput.addEventListener('change', () => {
                 if (videoInput.files.length > 0) {
-                    handleVideoUpload(videoInput.files[0]);
+                    videoName.textContent = videoInput.files[0].name;
+                } else {
+                    videoName.textContent = '';
                 }
             });
+        }
+
+        // Submit video upload
+        function submitVideoUpload() {
+            const videoInput = document.getElementById('video-input');
+            if (videoInput.files.length === 0) {
+                const statusDiv = document.getElementById('video-status');
+                statusDiv.innerHTML = `
+                    <div class="message message-error">
+                        Please select a video file to upload
+                    </div>
+                `;
+                setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+                return;
+            }
+            handleVideoUpload(videoInput.files[0]);
         }
 
         async function handleVideoUpload(file) {
             const statusDiv = document.getElementById('video-status');
             const language = document.getElementById('video-language').value;
             const translate = document.getElementById('video-translate').value;
+            const description = document.getElementById('video-description').value.trim();
 
             statusDiv.innerHTML = `
                 <div style="margin-top: 0.5rem; font-size: 0.875rem;">
@@ -342,6 +397,9 @@
                 formData.append('file', file);
                 formData.append('language', language);
                 formData.append('translate', translate);
+                if (description) {
+                    formData.append('description', description);
+                }
 
                 const response = await fetch(`${API_BASE_URL}/upload/video`, {
                     method: 'POST',
@@ -376,8 +434,10 @@
                 `;
             }
 
-            // Clear file input
+            // Clear file input, description, and file name
             document.getElementById('video-input').value = '';
+            document.getElementById('video-description').value = '';
+            document.getElementById('video-selected-name').textContent = '';
 
             // Clear status after 10 seconds
             setTimeout(() => {
@@ -387,46 +447,40 @@
 
         // Audio upload setup
         function setupAudioUpload() {
-            const audioSection = document.getElementById('audio-upload-section');
             const audioInput = document.getElementById('audio-input');
+            const audioName = document.getElementById('audio-selected-name');
 
-            // Drag and drop
-            audioSection.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                audioSection.classList.add('dragover');
-            });
-
-            audioSection.addEventListener('dragleave', () => {
-                audioSection.classList.remove('dragover');
-            });
-
-            audioSection.addEventListener('drop', (e) => {
-                e.preventDefault();
-                audioSection.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleAudioUpload(files[0]);
-                }
-            });
-
-            // Click to browse
-            audioSection.addEventListener('click', (e) => {
-                if (e.target === audioSection || e.target.tagName === 'P') {
-                    audioInput.click();
-                }
-            });
-
+            // Update file name when file is selected
             audioInput.addEventListener('change', () => {
                 if (audioInput.files.length > 0) {
-                    handleAudioUpload(audioInput.files[0]);
+                    audioName.textContent = audioInput.files[0].name;
+                } else {
+                    audioName.textContent = '';
                 }
             });
+        }
+
+        // Submit audio upload
+        function submitAudioUpload() {
+            const audioInput = document.getElementById('audio-input');
+            if (audioInput.files.length === 0) {
+                const statusDiv = document.getElementById('audio-status');
+                statusDiv.innerHTML = `
+                    <div class="message message-error">
+                        Please select an audio file to upload
+                    </div>
+                `;
+                setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+                return;
+            }
+            handleAudioUpload(audioInput.files[0]);
         }
 
         async function handleAudioUpload(file) {
             const statusDiv = document.getElementById('audio-status');
             const language = document.getElementById('audio-language').value;
             const translate = document.getElementById('audio-translate').value;
+            const description = document.getElementById('audio-description').value.trim();
 
             statusDiv.innerHTML = `
                 <div style="margin-top: 0.5rem; font-size: 0.875rem;">
@@ -439,6 +493,9 @@
                 formData.append('file', file);
                 formData.append('language', language);
                 formData.append('translate', translate);
+                if (description) {
+                    formData.append('description', description);
+                }
 
                 const response = await fetch(`${API_BASE_URL}/upload/audio`, {
                     method: 'POST',
@@ -473,8 +530,10 @@
                 `;
             }
 
-            // Clear file input
+            // Clear file input, description, and file name
             document.getElementById('audio-input').value = '';
+            document.getElementById('audio-description').value = '';
+            document.getElementById('audio-selected-name').textContent = '';
 
             // Clear status after 10 seconds
             setTimeout(() => {
@@ -489,6 +548,7 @@
             const url = urlInput.value.trim();
             const language = document.getElementById('youtube-language').value;
             const translate = document.getElementById('youtube-translate').value;
+            const description = document.getElementById('youtube-description').value.trim();
 
             if (!url) {
                 statusDiv.innerHTML = `
@@ -518,17 +578,22 @@
             `;
 
             try {
+                const payload = {
+                    url: url,
+                    language: language,
+                    translate: translate
+                };
+                if (description) {
+                    payload.description = description;
+                }
+
                 const response = await fetch(`${API_BASE_URL}/upload/youtube`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${getToken()}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        url: url,
-                        language: language,
-                        translate: translate
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (response.ok) {
@@ -540,8 +605,9 @@
                             <br><small>Source ID: ${data.source_id}</small>
                         </div>
                     `;
-                    // Clear URL input
+                    // Clear URL input and description
                     urlInput.value = '';
+                    document.getElementById('youtube-description').value = '';
                 } else {
                     const error = await response.json();
                     statusDiv.innerHTML = `

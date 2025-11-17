@@ -74,13 +74,14 @@ class ChunkMetadata:
     filename: str
     title: str
     mimetype: str
-    
+
     # Optional extracted metadata
     author: Optional[str] = None
     organization: Optional[str] = None
     date: Optional[str] = None
     publisher: Optional[str] = None
     tags: List[str] = field(default_factory=list)
+    description: Optional[str] = None
 
 
 @dataclass
@@ -135,6 +136,8 @@ class Chunk:
             result["publisher"] = self.metadata.publisher
         if self.metadata.tags:
             result["tags"] = self.metadata.tags
+        if self.metadata.description:
+            result["description"] = self.metadata.description
         
         # Add anchor information
         if self.anchor.page is not None:
@@ -163,7 +166,8 @@ class Chunk:
             organization=data.get("organization"),
             date=data.get("date"),
             publisher=data.get("publisher"),
-            tags=data.get("tags", [])
+            tags=data.get("tags", []),
+            description=data.get("description")
         )
         
         anchor = ChunkAnchor(
@@ -191,14 +195,15 @@ class Summary:
     filename: str
     title: str
     summary_text: str
-    
+
     # Extracted metadata
     author: Optional[str] = None
     organization: Optional[str] = None
     date: Optional[str] = None
     publisher: Optional[str] = None
     tags: List[str] = field(default_factory=list)
-    
+    description: Optional[str] = None
+
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     
     def to_dict(self) -> Dict[str, Any]:
@@ -225,7 +230,9 @@ class Summary:
             result["publisher"] = self.publisher
         if self.tags:
             result["tags"] = self.tags
-        
+        if self.description:
+            result["description"] = self.description
+
         return result
     
     @classmethod
@@ -241,6 +248,7 @@ class Summary:
             date=data.get("date"),
             publisher=data.get("publisher"),
             tags=data.get("tags", []),
+            description=data.get("description"),
             created_at=data.get("created_at", datetime.utcnow().isoformat())
         )
 

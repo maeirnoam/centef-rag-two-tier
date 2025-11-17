@@ -58,7 +58,8 @@ class ManifestEntry:
     date: Optional[str] = None
     publisher: Optional[str] = None
     tags: List[str] = field(default_factory=list)
-    
+    description: Optional[str] = None
+
     # Storage paths
     data_path: Optional[str] = None
     summary_path: Optional[str] = None
@@ -89,6 +90,7 @@ class ManifestEntry:
             "date": self.date,
             "publisher": self.publisher,
             "tags": self.tags,
+            "description": self.description,
             "data_path": self.data_path,
             "summary_path": self.summary_path,
         }
@@ -113,6 +115,7 @@ class ManifestEntry:
             date=data.get("date"),
             publisher=data.get("publisher"),
             tags=data.get("tags", []),
+            description=data.get("description"),
             data_path=data.get("data_path"),
             summary_path=data.get("summary_path"),
         )
