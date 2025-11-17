@@ -83,15 +83,176 @@ app.add_middleware(
 # Background Processing Functions
 # ============================================================================
 
+def process_video_file(source_id: str, source_uri: str, language: str, translate: str):
+    """
+    Background task to process video file: extract audio, transcribe, translate, chunk.
+
+    Args:
+        source_id: Document source ID
+        source_uri: GCS URI of uploaded video file
+        language: Source language code (e.g., "ar-SA")
+        translate: Target language for translation (e.g., "en")
+    """
+    import time
+    logger.info(f"Starting video processing for {source_id}")
+    time.sleep(2)  # Allow manifest entry to be written
+
+    try:
+        from tools.processing.ingest_video import process_video
+        from tools.processing.extract_audio import extract_audio_from_gcs
+
+        # Extract audio first
+        audio_uri = source_uri.replace(".mp4", ".wav").replace(".m4a", ".wav")
+        logger.info(f"Extracting audio from {source_uri} to {audio_uri}")
+        extract_audio_from_gcs(source_uri, audio_uri)
+
+        # Process video with audio transcription
+        process_video(
+            video_gcs_uri=source_uri,
+            source_id=source_id,
+            audio_gcs_uri=audio_uri,
+            language_code=language,
+            translate_to=translate,
+            window_seconds=30.0
+        )
+
+        logger.info(f"✅ Video processing complete for {source_id}")
+
+        # Step 2: Summarize chunks and extract metadata
+        logger.info(f"[2/2] Summarizing {source_id} and extracting metadata...")
+        from tools.processing.summarize_chunks import summarize_chunks
+        summary_path = summarize_chunks(source_id)
+        logger.info(f"Summary created at {summary_path}")
+        logger.info(f"✅ Video processing pipeline complete - Ready for admin approval")
+
+    except Exception as e:
+        logger.error(f"❌ Video processing failed for {source_id}: {e}", exc_info=True)
+        try:
+            update_manifest_entry(source_id, {
+                "status": DocumentStatus.ERROR,
+                "notes": f"Video processing error: {str(e)}"
+            })
+        except Exception as update_error:
+            logger.error(f"Failed to update manifest entry for {source_id}: {update_error}")
+
+
+def process_audio_file(source_id: str, source_uri: str, language: str, translate: str):
+    """
+    Background task to process audio file: transcribe, translate, chunk.
+
+    Args:
+        source_id: Document source ID
+        source_uri: GCS URI of uploaded audio file
+        language: Source language code (e.g., "ar-SA")
+        translate: Target language for translation (e.g., "en")
+    """
+    import time
+    logger.info(f"Starting audio processing for {source_id}")
+    time.sleep(2)  # Allow manifest entry to be written
+
+    try:
+        from tools.processing.ingest_audio import process_audio
+
+        # Process audio with transcription
+        process_audio(
+            audio_gcs_uri=source_uri,
+            source_id=source_id,
+            language_code=language,
+            translate_to=translate,
+            window_seconds=30.0
+        )
+
+        logger.info(f"✅ Audio processing complete for {source_id}")
+
+        # Step 2: Summarize chunks and extract metadata
+        logger.info(f"[2/2] Summarizing {source_id} and extracting metadata...")
+        from tools.processing.summarize_chunks import summarize_chunks
+        summary_path = summarize_chunks(source_id)
+        logger.info(f"Summary created at {summary_path}")
+        logger.info(f"✅ Audio processing pipeline complete - Ready for admin approval")
+
+    except Exception as e:
+        logger.error(f"❌ Audio processing failed for {source_id}: {e}", exc_info=True)
+        try:
+            update_manifest_entry(source_id, {
+                "status": DocumentStatus.ERROR,
+                "notes": f"Audio processing error: {str(e)}"
+            })
+        except Exception as update_error:
+            logger.error(f"Failed to update manifest entry for {source_id}: {update_error}")
+
+
+def process_youtube_video(source_id: str, url: str, language: str, translate: str):
+    """
+    Background task to process YouTube video: download audio, upload to GCS, transcribe, translate, chunk.
+
+    Args:
+        source_id: Document source ID
+        url: YouTube video URL
+        language: Source language code (e.g., "ar-SA")
+        translate: Target language for translation (e.g., "en")
+    """
+    import time
+    logger.info(f"Starting YouTube processing for {source_id}")
+    time.sleep(2)  # Allow manifest entry to be written
+
+    try:
+        from tools.processing.ingest_youtube import download_audio_with_fallback, upload_to_gcs, extract_video_id
+        from tools.processing.ingest_video import process_video
+        import tempfile
+        import os
+
+        # Download and upload audio (pytubefix first, then yt-dlp fallback)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logger.info(f"Downloading audio from YouTube: {url}")
+            wav_local = download_audio_with_fallback(url, tmpdir)
+
+            # Upload to GCS
+            vid_id = extract_video_id(url)
+            source_bucket = os.getenv("SOURCE_BUCKET", "centef-rag-bucket").replace("gs://", "").strip("/")
+            dest_blob = f"data/youtube_{vid_id}.wav"
+            logger.info(f"Uploading audio to GCS...")
+            audio_gs = upload_to_gcs(wav_local, source_bucket, dest_blob)
+
+            # Process with video pipeline
+            process_video(
+                video_gcs_uri=url,
+                source_id=source_id,
+                audio_gcs_uri=audio_gs,
+                language_code=language,
+                translate_to=translate,
+                window_seconds=30.0
+            )
+
+        logger.info(f"✅ YouTube processing complete for {source_id}")
+
+        # Step 2: Summarize chunks and extract metadata
+        logger.info(f"[2/2] Summarizing {source_id} and extracting metadata...")
+        from tools.processing.summarize_chunks import summarize_chunks
+        summary_path = summarize_chunks(source_id)
+        logger.info(f"Summary created at {summary_path}")
+        logger.info(f"✅ YouTube processing pipeline complete - Ready for admin approval")
+
+    except Exception as e:
+        logger.error(f"❌ YouTube processing failed for {source_id}: {e}", exc_info=True)
+        try:
+            update_manifest_entry(source_id, {
+                "status": DocumentStatus.ERROR,
+                "notes": f"YouTube processing error: {str(e)}"
+            })
+        except Exception as update_error:
+            logger.error(f"Failed to update manifest entry for {source_id}: {update_error}")
+
+
 def process_uploaded_document(source_id: str, source_uri: str, mimetype: str):
     """
     Background task to process uploaded document to pending_approval status:
     1. Extract chunks (PDF/DOCX/Image/SRT)
     2. Summarize chunks with Gemini and extract metadata
     3. Stop at pending_approval for admin review
-    
+
     Note: Indexing to Discovery Engine happens separately after admin approval.
-    
+
     Args:
         source_id: Document source ID
         source_uri: GCS URI of uploaded file
@@ -593,6 +754,291 @@ async def upload_file(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error uploading file: {str(e)}"
+        )
+
+
+@app.post("/upload/video")
+async def upload_video(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    language: str = "ar-SA",
+    translate: str = "en",
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload a video file for transcription and processing.
+
+    The video will be:
+    1. Uploaded to GCS
+    2. Audio extracted
+    3. Transcribed using Speech-to-Text
+    4. Translated (if specified)
+    5. Chunked into time windows
+
+    Args:
+        file: Video file (MP4, M4A, etc.)
+        language: Source language code (default: ar-SA for Arabic)
+        translate: Target language for translation (default: en for English)
+        current_user: Authenticated user
+    """
+    logger.info(f"POST /upload/video file={file.filename} by user={current_user.user_id}")
+
+    # Validate file type
+    allowed_extensions = {'.mp4', '.m4a', '.mov', '.avi', '.mkv'}
+    file_ext = Path(file.filename).suffix.lower()
+
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Video file type not supported: {file_ext}. Allowed: {', '.join(allowed_extensions)}"
+        )
+
+    try:
+        # Generate source_id
+        filename_stem = Path(file.filename).stem
+        sanitized_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in filename_stem)
+        source_id = f"video_{sanitized_stem}_{uuid.uuid4().hex[:8]}"
+
+        # Upload to GCS
+        source_bucket = os.getenv("SOURCE_BUCKET", "centef-rag-bucket")
+        from google.cloud import storage
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(source_bucket)
+
+        blob_path = f"sources/{file.filename}"
+        blob = bucket.blob(blob_path)
+
+        contents = await file.read()
+        blob.upload_from_string(contents, content_type="video/mp4")
+
+        source_uri = f"gs://{source_bucket}/{blob_path}"
+        logger.info(f"Video uploaded to: {source_uri}")
+
+        # Create manifest entry
+        entry = ManifestEntry(
+            source_id=source_id,
+            filename=file.filename,
+            title=Path(file.filename).stem.replace('_', ' ').title(),
+            mimetype="video/mp4",
+            source_uri=source_uri,
+            ingested_by=current_user.email,
+            notes=f"Video uploaded via web interface by {current_user.email}. Language: {language}, Translate to: {translate}",
+            status=DocumentStatus.PENDING_PROCESSING
+        )
+
+        created_entry = create_manifest_entry(entry)
+
+        # Trigger background video processing
+        background_tasks.add_task(
+            process_video_file,
+            source_id=source_id,
+            source_uri=source_uri,
+            language=language,
+            translate=translate
+        )
+        logger.info(f"Queued video processing for {source_id}")
+
+        return {
+            "source_id": source_id,
+            "filename": file.filename,
+            "source_uri": source_uri,
+            "status": "pending_processing",
+            "message": "Video uploaded successfully. Transcription and processing started in background."
+        }
+
+    except Exception as e:
+        logger.error(f"Error uploading video: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error uploading video: {str(e)}"
+        )
+
+
+@app.post("/upload/audio")
+async def upload_audio(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    language: str = "ar-SA",
+    translate: str = "en",
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload an audio file for transcription and processing.
+
+    The audio will be:
+    1. Uploaded to GCS
+    2. Transcribed using Speech-to-Text
+    3. Translated (if specified)
+    4. Chunked into time windows
+
+    Args:
+        file: Audio file (WAV, MP3, M4A, etc.)
+        language: Source language code (default: ar-SA for Arabic)
+        translate: Target language for translation (default: en for English)
+        current_user: Authenticated user
+    """
+    logger.info(f"POST /upload/audio file={file.filename} by user={current_user.user_id}")
+
+    # Validate file type
+    allowed_extensions = {'.wav', '.mp3', '.m4a', '.flac', '.ogg'}
+    file_ext = Path(file.filename).suffix.lower()
+
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Audio file type not supported: {file_ext}. Allowed: {', '.join(allowed_extensions)}"
+        )
+
+    try:
+        # Generate source_id
+        filename_stem = Path(file.filename).stem
+        sanitized_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in filename_stem)
+        source_id = f"audio_{sanitized_stem}_{uuid.uuid4().hex[:8]}"
+
+        # Upload to GCS
+        source_bucket = os.getenv("SOURCE_BUCKET", "centef-rag-bucket")
+        from google.cloud import storage
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(source_bucket)
+
+        blob_path = f"sources/{file.filename}"
+        blob = bucket.blob(blob_path)
+
+        contents = await file.read()
+        blob.upload_from_string(contents, content_type="audio/wav")
+
+        source_uri = f"gs://{source_bucket}/{blob_path}"
+        logger.info(f"Audio uploaded to: {source_uri}")
+
+        # Create manifest entry
+        entry = ManifestEntry(
+            source_id=source_id,
+            filename=file.filename,
+            title=Path(file.filename).stem.replace('_', ' ').title(),
+            mimetype="audio/wav",
+            source_uri=source_uri,
+            ingested_by=current_user.email,
+            notes=f"Audio uploaded via web interface by {current_user.email}. Language: {language}, Translate to: {translate}",
+            status=DocumentStatus.PENDING_PROCESSING
+        )
+
+        created_entry = create_manifest_entry(entry)
+
+        # Trigger background audio processing
+        background_tasks.add_task(
+            process_audio_file,
+            source_id=source_id,
+            source_uri=source_uri,
+            language=language,
+            translate=translate
+        )
+        logger.info(f"Queued audio processing for {source_id}")
+
+        return {
+            "source_id": source_id,
+            "filename": file.filename,
+            "source_uri": source_uri,
+            "status": "pending_processing",
+            "message": "Audio uploaded successfully. Transcription and processing started in background."
+        }
+
+    except Exception as e:
+        logger.error(f"Error uploading audio: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error uploading audio: {str(e)}"
+        )
+
+
+class YouTubeUploadRequest(BaseModel):
+    url: str = Field(..., description="YouTube video URL")
+    language: str = Field(default="ar-SA", description="Source language code")
+    translate: str = Field(default="en", description="Target language for translation")
+
+
+@app.post("/upload/youtube")
+async def upload_youtube(
+    request: YouTubeUploadRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Process a YouTube video URL for transcription.
+
+    The YouTube video will be:
+    1. Downloaded (audio only)
+    2. Uploaded to GCS
+    3. Transcribed using Speech-to-Text
+    4. Translated (if specified)
+    5. Chunked into time windows
+
+    Args:
+        request: YouTube upload request with URL and language settings
+        current_user: Authenticated user
+    """
+    logger.info(f"POST /upload/youtube url={request.url} by user={current_user.user_id}")
+
+    try:
+        # Extract video ID from URL
+        from urllib.parse import urlparse, parse_qs
+        parsed_url = urlparse(request.url)
+
+        video_id = None
+        if parsed_url.hostname in ("www.youtube.com", "youtube.com"):
+            qs = parse_qs(parsed_url.query)
+            if "v" in qs:
+                video_id = qs["v"][0]
+        elif parsed_url.hostname == "youtu.be":
+            video_id = parsed_url.path.lstrip('/')
+
+        if not video_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid YouTube URL. Could not extract video ID."
+            )
+
+        # Generate source_id
+        source_id = f"youtube_{video_id}_{uuid.uuid4().hex[:8]}"
+
+        # Create manifest entry
+        entry = ManifestEntry(
+            source_id=source_id,
+            filename=f"youtube_{video_id}.mp4",
+            title=f"YouTube Video {video_id}",
+            mimetype="video/youtube",
+            source_uri=request.url,
+            ingested_by=current_user.email,
+            notes=f"YouTube video uploaded via web interface by {current_user.email}. Language: {request.language}, Translate to: {request.translate}",
+            status=DocumentStatus.PENDING_PROCESSING
+        )
+
+        created_entry = create_manifest_entry(entry)
+
+        # Trigger background YouTube processing
+        background_tasks.add_task(
+            process_youtube_video,
+            source_id=source_id,
+            url=request.url,
+            language=request.language,
+            translate=request.translate
+        )
+        logger.info(f"Queued YouTube processing for {source_id}")
+
+        return {
+            "source_id": source_id,
+            "url": request.url,
+            "video_id": video_id,
+            "status": "pending_processing",
+            "message": "YouTube video queued for processing. Download and transcription started in background."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing YouTube URL: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing YouTube URL: {str(e)}"
         )
 
 
@@ -1159,18 +1605,18 @@ async def login(request: LoginRequest):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current user information.
-    
+
     Args:
         current_user: Authenticated user
-    
+
     Returns:
         User information
     """
     logger.info(f"GET /auth/me for user={current_user.user_id}")
-    
+
     # Get full user profile
     user_profile = get_user_by_id(current_user.user_id)
-    
+
     if not user_profile:
         # User authenticated via API key or doesn't have profile
         return {
@@ -1178,7 +1624,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
             "email": current_user.email,
             "roles": current_user.roles
         }
-    
+
     return {
         "user_id": user_profile.user_id,
         "email": user_profile.email,
@@ -1187,6 +1633,157 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "created_at": user_profile.created_at,
         "last_login": user_profile.last_login
     }
+
+
+# Password reset token storage (in-memory for simplicity, use Redis/DB in production)
+password_reset_tokens = {}
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request model for forgot password."""
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request model for reset password."""
+    token: str
+    new_password: str
+
+
+@app.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """
+    Request a password reset token.
+
+    Args:
+        request: Email address for password reset
+
+    Returns:
+        Success message with reset token (in development) or confirmation message
+    """
+    logger.info(f"POST /auth/forgot-password for email={request.email}")
+
+    try:
+        # Check if user exists
+        user = get_user_by_email(request.email)
+
+        if not user:
+            # For security, don't reveal if email exists or not
+            return {
+                "message": "If an account with that email exists, a password reset link has been sent.",
+                "success": True
+            }
+
+        # Generate reset token (valid for 1 hour)
+        from datetime import timedelta
+        import secrets
+
+        reset_token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+
+        # Store token with user_id and expiration
+        password_reset_tokens[reset_token] = {
+            "user_id": user.user_id,
+            "email": user.email,
+            "expires_at": expires_at.isoformat()
+        }
+
+        # Send password reset email
+        logger.info(f"Password reset token generated for {user.email}: {reset_token}")
+        logger.info(f"Reset URL: /reset-password.html?token={reset_token}")
+
+        # Import and send email
+        from shared.email_service import send_password_reset_email
+        email_sent = send_password_reset_email(
+            to_email=user.email,
+            reset_token=reset_token,
+            user_name=user.full_name
+        )
+
+        # Return response
+        response_data = {
+            "message": "If an account with that email exists, a password reset link has been sent.",
+            "success": True
+        }
+
+        # In development mode (no SendGrid API key), include token for testing
+        if not email_sent:
+            response_data["dev_reset_token"] = reset_token
+            response_data["dev_reset_url"] = f"/reset-password.html?token={reset_token}"
+            logger.info("Development mode: Reset link included in response")
+
+        return response_data
+
+    except Exception as e:
+        logger.error(f"Error in forgot password: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error processing password reset request"
+        )
+
+
+@app.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """
+    Reset password using a valid token.
+
+    Args:
+        request: Reset token and new password
+
+    Returns:
+        Success message
+    """
+    logger.info(f"POST /auth/reset-password with token")
+
+    try:
+        # Verify token exists and is not expired
+        token_data = password_reset_tokens.get(request.token)
+
+        if not token_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+
+        # Check if token is expired
+        expires_at = datetime.fromisoformat(token_data["expires_at"])
+        if datetime.utcnow() > expires_at:
+            # Remove expired token
+            del password_reset_tokens[request.token]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has expired. Please request a new one."
+            )
+
+        # Validate new password
+        if len(request.new_password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+
+        # Update password
+        user_id = token_data["user_id"]
+        update_user_password(user_id, request.new_password)
+
+        # Remove used token
+        del password_reset_tokens[request.token]
+
+        logger.info(f"Password successfully reset for user {user_id}")
+
+        return {
+            "message": "Password successfully reset. You can now login with your new password.",
+            "success": True
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting password: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error resetting password"
+        )
 
 
 # ============================================================================

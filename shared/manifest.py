@@ -187,27 +187,44 @@ def _write_manifest_entries(entries: List[ManifestEntry]) -> None:
     """
     logger.info(f"Writing {len(entries)} manifest entries to {MANIFEST_PATH}")
     
-    try:
-        client = _get_storage_client()
-        bucket_name, blob_path = _parse_gcs_path(MANIFEST_PATH)
-        bucket = client.bucket(bucket_name)
-        blob = bucket.blob(blob_path)
-        
-        # Convert to JSONL
-        lines = []
-        for entry in entries:
-            lines.append(json.dumps(entry.to_dict(), ensure_ascii=False))
-        
-        content = '\n'.join(lines) + '\n'
-        
-        # Upload to GCS
-        blob.upload_from_string(content, content_type='application/jsonl')
-        
-        logger.info(f"Successfully wrote manifest")
-        
-    except Exception as e:
-        logger.error(f"Error writing manifest: {e}")
-        raise
+    import time
+    from google.api_core.exceptions import TooManyRequests
+
+    max_retries = 5
+    base_delay = 1.0  # Start with 1 second
+
+    for attempt in range(max_retries):
+        try:
+            client = _get_storage_client()
+            bucket_name, blob_path = _parse_gcs_path(MANIFEST_PATH)
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(blob_path)
+
+            # Convert to JSONL
+            lines = []
+            for entry in entries:
+                lines.append(json.dumps(entry.to_dict(), ensure_ascii=False))
+
+            content = '\n'.join(lines) + '\n'
+
+            # Upload to GCS
+            blob.upload_from_string(content, content_type='application/jsonl')
+
+            logger.info(f"Successfully wrote manifest")
+            return  # Success, exit the function
+
+        except TooManyRequests as e:
+            if attempt < max_retries - 1:
+                # Calculate delay with exponential backoff
+                delay = base_delay * (2 ** attempt)
+                logger.warning(f"Rate limited writing manifest, retrying in {delay}s (attempt {attempt+1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                logger.error(f"Failed to write manifest after {max_retries} attempts due to rate limiting")
+                raise
+        except Exception as e:
+            logger.error(f"Error writing manifest: {e}")
+            raise
 
 
 def get_manifest_entries(status: Optional[str] = None) -> List[ManifestEntry]:

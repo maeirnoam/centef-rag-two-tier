@@ -11,13 +11,13 @@ $hasErrors = $false
 $currentDir = Get-Location
 Write-Host "Current directory: $currentDir" -ForegroundColor Gray
 
-# Navigate to centef-rag-two-tier if needed
-if ($currentDir.Path -notlike "*centef-rag-two-tier") {
-    if (Test-Path "centef-rag-two-tier") {
-        Set-Location "centef-rag-two-tier"
-        Write-Host "✓ Navigated to centef-rag-two-tier" -ForegroundColor Green
+# Navigate to centef-rag-fresh if needed
+if ($currentDir.Path -notlike "*centef-rag-fresh") {
+    if (Test-Path "centef-rag-fresh") {
+        Set-Location "centef-rag-fresh"
+        Write-Host "✓ Navigated to centef-rag-fresh" -ForegroundColor Green
     } else {
-        Write-Host "✗ Cannot find centef-rag-two-tier directory" -ForegroundColor Red
+        Write-Host "✗ Cannot find centef-rag-fresh directory" -ForegroundColor Red
         exit 1
     }
 }

@@ -14,7 +14,7 @@ gcloud config get-value project
 
 ### Deploy Backend
 ```powershell
-cd centef-rag-two-tier
+cd centef-rag-fresh
 .\deploy-backend.ps1
 ```
 

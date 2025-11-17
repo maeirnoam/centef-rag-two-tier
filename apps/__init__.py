@@ -1,1 +1,1 @@
-"""Apps package initialization."""
+# Apps package

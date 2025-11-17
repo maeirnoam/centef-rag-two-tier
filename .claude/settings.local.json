@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -ExecutionPolicy Bypass -File deploy-backend-simple.ps1)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

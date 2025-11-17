@@ -14,6 +14,7 @@ uvicorn[standard]==0.27.0
 gunicorn==21.2.0
 pydantic==2.5.3
 python-jose[cryptography]==3.3.0  # For JWT authentication
+python-multipart==0.0.6  # For form data handling in FastAPI
 
 # PDF processing (using PyMuPDF)
 PyMuPDF==1.23.8
@@ -29,5 +30,19 @@ pytesseract==0.3.10
 # Windows: https://github.com/UB-Mannheim/tesseract/wiki
 # Or use Google Cloud Vision API (already in google-cloud-aiplatform)
 
+# Audio/Video processing
+google-cloud-speech==2.20.0  # Speech-to-Text API
+google-cloud-translate==3.11.1  # Translation API
+yt-dlp==2024.3.10  # YouTube downloader (fallback method)
+pytubefix  # YouTube downloader (primary method - maintained fork)
+youtube-transcript-api==0.6.1  # Get existing YouTube captions (fastest method)
+# Note: ffmpeg must be installed separately for audio extraction:
+# Windows: https://ffmpeg.org/download.html
+# Or use chocolatey: choco install ffmpeg
+# Linux: sudo apt-get install ffmpeg
+# Mac: brew install ffmpeg
+
 # Utilities
 requests==2.31.0
+
+# Email service (Gmail SMTP uses built-in smtplib - no external dependencies needed)

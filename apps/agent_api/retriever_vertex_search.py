@@ -86,11 +86,15 @@ def search_chunks(
             
             # Convert struct_data to regular dict
             struct_data = dict(doc.struct_data) if doc.struct_data else {}
+            page_number = struct_data.get("page_number")
+            if page_number is None:
+                page_number = struct_data.get("page")
             
             results.append({
                 "id": doc.id,
                 "content": struct_data.get("content", ""),
-                "page": struct_data.get("page"),
+                "page_number": page_number,
+                "page": page_number,  # legacy key for backward compatibility
                 "start_sec": struct_data.get("start_sec"),
                 "end_sec": struct_data.get("end_sec"),
                 "source_id": struct_data.get("source_id"),

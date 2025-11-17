@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contribute - CENTEF's AI Platform</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="https://centef.org/" target="_blank" class="nav-logo-link">
+                    <img src="images/CENTEF_logo_new.svg" alt="CENTEF Logo" class="nav-logo">
+                </a>
+                <a href="chat.html" class="nav-logo-link">
+                    <img src="images/munir_logo_fixed.svg" alt="Munir Logo" class="nav-logo">
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="chat.html">Chat</a>
+                <a href="contribute.html">Contribute</a>
+                <a href="manifest.html" class="admin-only">Manifest</a>
+                <a href="users.html" class="admin-only">Users</a>
+                <div class="user-info">
+                    <span class="user-email" id="user-email"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-content" style="max-width: 800px; margin: 2rem auto;">
+            <h1 style="margin-bottom: 1rem;">Contribute to CENTEF's Knowledge Base</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem;">
+                Help expand Munir's knowledge by uploading research documents, videos, audio files, or YouTube content.
+            </p>
+
+            <!-- Document Upload Section -->
+            <div style="margin-bottom: 3rem;">
+                <h2 style="margin-bottom: 1rem; font-size: 1.5rem;">Documents</h2>
+                <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Upload PDF, Word documents, images, or subtitle files
+                </p>
+                <div class="upload-section" id="upload-section" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="font-size: 1rem; margin-bottom: 1rem;">Drag & drop files here or click to browse</p>
+                    <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.srt" style="display: none;">
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Choose Files
+                    </button>
+                </div>
+                <div id="upload-status" style="margin-top: 1rem;"></div>
+            </div>
+
+            <!-- Video Upload Section -->
+            <div style="margin-bottom: 3rem;">
+                <h2 style="margin-bottom: 1rem; font-size: 1.5rem;">Video Files</h2>
+                <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Upload video files for automatic transcription and translation
+                </p>
+                <div class="upload-section" id="video-upload-section" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="font-size: 1rem; margin-bottom: 1rem;">Drag & drop video files here or click to browse</p>
+                    <input type="file" id="video-input" accept=".mp4,.m4a,.mov,.avi,.mkv" style="display: none;">
+                    <button class="btn btn-primary" onclick="document.getElementById('video-input').click()">
+                        Choose Video File
+                    </button>
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                    <div>
+                        <label for="video-language" style="font-size: 0.9rem; color: var(--text-gray);">Source Language:</label>
+                        <select id="video-language" style="margin-left: 0.5rem; padding: 0.25rem;">
+                            <option value="ar-SA">Arabic (ar-SA)</option>
+                            <option value="en-US">English (en-US)</option>
+                            <option value="fr-FR">French (fr-FR)</option>
+                            <option value="es-ES">Spanish (es-ES)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="video-translate" style="font-size: 0.9rem; color: var(--text-gray);">Translate to:</label>
+                        <select id="video-translate" style="margin-left: 0.5rem; padding: 0.25rem;">
+                            <option value="en">English</option>
+                            <option value="ar">Arabic</option>
+                            <option value="fr">French</option>
+                            <option value="es">Spanish</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="video-status" style="margin-top: 1rem;"></div>
+            </div>
+
+            <!-- Audio Upload Section -->
+            <div style="margin-bottom: 3rem;">
+                <h2 style="margin-bottom: 1rem; font-size: 1.5rem;">Audio Files</h2>
+                <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Upload audio files for automatic transcription and translation
+                </p>
+                <div class="upload-section" id="audio-upload-section" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="font-size: 1rem; margin-bottom: 1rem;">Drag & drop audio files here or click to browse</p>
+                    <input type="file" id="audio-input" accept=".wav,.mp3,.m4a,.flac,.ogg" style="display: none;">
+                    <button class="btn btn-primary" onclick="document.getElementById('audio-input').click()">
+                        Choose Audio File
+                    </button>
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                    <div>
+                        <label for="audio-language" style="font-size: 0.9rem; color: var(--text-gray);">Source Language:</label>
+                        <select id="audio-language" style="margin-left: 0.5rem; padding: 0.25rem;">
+                            <option value="ar-SA">Arabic (ar-SA)</option>
+                            <option value="en-US">English (en-US)</option>
+                            <option value="fr-FR">French (fr-FR)</option>
+                            <option value="es-ES">Spanish (es-ES)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="audio-translate" style="font-size: 0.9rem; color: var(--text-gray);">Translate to:</label>
+                        <select id="audio-translate" style="margin-left: 0.5rem; padding: 0.25rem;">
+                            <option value="en">English</option>
+                            <option value="ar">Arabic</option>
+                            <option value="fr">French</option>
+                            <option value="es">Spanish</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="audio-status" style="margin-top: 1rem;"></div>
+            </div>
+
+            <!-- YouTube URL Section -->
+            <div style="margin-bottom: 3rem;">
+                <h2 style="margin-bottom: 1rem; font-size: 1.5rem;">YouTube Videos</h2>
+                <p style="color: var(--text-gray); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Enter a YouTube URL for automatic transcription and translation
+                </p>
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <input type="url" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..."
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.25rem; margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; justify-content: center;">
+                        <div>
+                            <label for="youtube-language" style="font-size: 0.9rem; color: var(--text-gray);">Source Language:</label>
+                            <select id="youtube-language" style="margin-left: 0.5rem; padding: 0.25rem;">
+                                <option value="ar-SA">Arabic (ar-SA)</option>
+                                <option value="en-US">English (en-US)</option>
+                                <option value="fr-FR">French (fr-FR)</option>
+                                <option value="es-ES">Spanish (es-ES)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="youtube-translate" style="font-size: 0.9rem; color: var(--text-gray);">Translate to:</label>
+                            <select id="youtube-translate" style="margin-left: 0.5rem; padding: 0.25rem;">
+                                <option value="en">English</option>
+                                <option value="ar">Arabic</option>
+                                <option value="fr">French</option>
+                                <option value="es">Spanish</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="handleYouTubeUpload()" style="width: 100%;">
+                        Process YouTube Video
+                    </button>
+                </div>
+                <div id="youtube-status" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div style="margin-top: 3rem; padding: 1.5rem; background: var(--bg-light); border-radius: 0.5rem;">
+                <h3 style="margin-bottom: 1rem;">Upload Guidelines</h3>
+                <ul style="color: var(--text-gray); line-height: 1.8;">
+                    <li>All content should be relevant to counter-terrorism financing research</li>
+                    <li><strong>Documents:</strong> PDF, DOCX, DOC, PNG, JPG, JPEG, SRT (max 50MB per file)</li>
+                    <li><strong>Videos:</strong> MP4, M4A, MOV, AVI, MKV (max 100MB per file)</li>
+                    <li><strong>Audio:</strong> WAV, MP3, M4A, FLAC, OGG (max 50MB per file)</li>
+                    <li><strong>YouTube:</strong> Valid YouTube URLs (youtube.com/watch?v= or youtu.be/)</li>
+                    <li>Video and audio files will be automatically transcribed and translated</li>
+                    <li>Processing time varies based on file size, complexity, and audio length</li>
+                    <li>You will receive notifications when processing is complete</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        requireAuth();
+        displayUserInfo();
+
+        // File upload setup
+        window.addEventListener('DOMContentLoaded', () => {
+            setupFileUpload();
+        });
+
+        function setupFileUpload() {
+            const uploadSection = document.getElementById('upload-section');
+            const fileInput = document.getElementById('file-input');
+
+            // Drag and drop
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.classList.add('dragover');
+            });
+
+            uploadSection.addEventListener('dragleave', () => {
+                uploadSection.classList.remove('dragover');
+            });
+
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            // Click to browse
+            uploadSection.addEventListener('click', (e) => {
+                if (e.target === uploadSection || e.target.tagName === 'P') {
+                    fileInput.click();
+                }
+            });
+
+            fileInput.addEventListener('change', () => {
+                handleFiles(fileInput.files);
+            });
+        }
+
+        // Handle file uploads
+        async function handleFiles(files) {
+            const statusDiv = document.getElementById('upload-status');
+            statusDiv.innerHTML = '';
+
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                statusDiv.innerHTML += `
+                    <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                        Uploading ${escapeHtml(file.name)}... <span class="spinner" style="width: 12px; height: 12px; display: inline-block;"></span>
+                    </div>
+                `;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        statusDiv.innerHTML += `
+                            <div class="message message-success" style="margin-top: 0.5rem;">
+                                ✓ ${escapeHtml(file.name)} uploaded successfully
+                            </div>
+                        `;
+                    } else {
+                        const error = await response.json();
+                        statusDiv.innerHTML += `
+                            <div class="message message-error" style="margin-top: 0.5rem;">
+                                ✗ ${escapeHtml(file.name)}: ${error.detail || 'Upload failed'}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    statusDiv.innerHTML += `
+                        <div class="message message-error" style="margin-top: 0.5rem;">
+                            ✗ ${escapeHtml(file.name)}: Upload failed
+                        </div>
+                    `;
+                }
+            }
+
+            // Clear file input
+            document.getElementById('file-input').value = '';
+
+            // Clear status after 5 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // Utility function
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Video upload setup
+        window.addEventListener('DOMContentLoaded', () => {
+            setupVideoUpload();
+            setupAudioUpload();
+        });
+
+        function setupVideoUpload() {
+            const videoSection = document.getElementById('video-upload-section');
+            const videoInput = document.getElementById('video-input');
+
+            // Drag and drop
+            videoSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                videoSection.classList.add('dragover');
+            });
+
+            videoSection.addEventListener('dragleave', () => {
+                videoSection.classList.remove('dragover');
+            });
+
+            videoSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                videoSection.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleVideoUpload(files[0]);
+                }
+            });
+
+            // Click to browse
+            videoSection.addEventListener('click', (e) => {
+                if (e.target === videoSection || e.target.tagName === 'P') {
+                    videoInput.click();
+                }
+            });
+
+            videoInput.addEventListener('change', () => {
+                if (videoInput.files.length > 0) {
+                    handleVideoUpload(videoInput.files[0]);
+                }
+            });
+        }
+
+        async function handleVideoUpload(file) {
+            const statusDiv = document.getElementById('video-status');
+            const language = document.getElementById('video-language').value;
+            const translate = document.getElementById('video-translate').value;
+
+            statusDiv.innerHTML = `
+                <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                    Uploading ${escapeHtml(file.name)}... <span class="spinner" style="width: 12px; height: 12px; display: inline-block;"></span>
+                </div>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('language', language);
+                formData.append('translate', translate);
+
+                const response = await fetch(`${API_BASE_URL}/upload/video`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="message message-success" style="margin-top: 0.5rem;">
+                            ✓ ${escapeHtml(file.name)} uploaded successfully! Processing in background...
+                            <br><small>Source ID: ${data.source_id}</small>
+                        </div>
+                    `;
+                } else {
+                    const error = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="message message-error" style="margin-top: 0.5rem;">
+                            ✗ ${escapeHtml(file.name)}: ${error.detail || 'Upload failed'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Video upload error:', error);
+                statusDiv.innerHTML = `
+                    <div class="message message-error" style="margin-top: 0.5rem;">
+                        ✗ ${escapeHtml(file.name)}: Upload failed
+                    </div>
+                `;
+            }
+
+            // Clear file input
+            document.getElementById('video-input').value = '';
+
+            // Clear status after 10 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 10000);
+        }
+
+        // Audio upload setup
+        function setupAudioUpload() {
+            const audioSection = document.getElementById('audio-upload-section');
+            const audioInput = document.getElementById('audio-input');
+
+            // Drag and drop
+            audioSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                audioSection.classList.add('dragover');
+            });
+
+            audioSection.addEventListener('dragleave', () => {
+                audioSection.classList.remove('dragover');
+            });
+
+            audioSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                audioSection.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleAudioUpload(files[0]);
+                }
+            });
+
+            // Click to browse
+            audioSection.addEventListener('click', (e) => {
+                if (e.target === audioSection || e.target.tagName === 'P') {
+                    audioInput.click();
+                }
+            });
+
+            audioInput.addEventListener('change', () => {
+                if (audioInput.files.length > 0) {
+                    handleAudioUpload(audioInput.files[0]);
+                }
+            });
+        }
+
+        async function handleAudioUpload(file) {
+            const statusDiv = document.getElementById('audio-status');
+            const language = document.getElementById('audio-language').value;
+            const translate = document.getElementById('audio-translate').value;
+
+            statusDiv.innerHTML = `
+                <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                    Uploading ${escapeHtml(file.name)}... <span class="spinner" style="width: 12px; height: 12px; display: inline-block;"></span>
+                </div>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('language', language);
+                formData.append('translate', translate);
+
+                const response = await fetch(`${API_BASE_URL}/upload/audio`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="message message-success" style="margin-top: 0.5rem;">
+                            ✓ ${escapeHtml(file.name)} uploaded successfully! Processing in background...
+                            <br><small>Source ID: ${data.source_id}</small>
+                        </div>
+                    `;
+                } else {
+                    const error = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="message message-error" style="margin-top: 0.5rem;">
+                            ✗ ${escapeHtml(file.name)}: ${error.detail || 'Upload failed'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Audio upload error:', error);
+                statusDiv.innerHTML = `
+                    <div class="message message-error" style="margin-top: 0.5rem;">
+                        ✗ ${escapeHtml(file.name)}: Upload failed
+                    </div>
+                `;
+            }
+
+            // Clear file input
+            document.getElementById('audio-input').value = '';
+
+            // Clear status after 10 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 10000);
+        }
+
+        // YouTube upload handler
+        async function handleYouTubeUpload() {
+            const statusDiv = document.getElementById('youtube-status');
+            const urlInput = document.getElementById('youtube-url');
+            const url = urlInput.value.trim();
+            const language = document.getElementById('youtube-language').value;
+            const translate = document.getElementById('youtube-translate').value;
+
+            if (!url) {
+                statusDiv.innerHTML = `
+                    <div class="message message-error" style="margin-top: 0.5rem;">
+                        Please enter a YouTube URL
+                    </div>
+                `;
+                setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+                return;
+            }
+
+            // Basic YouTube URL validation
+            if (!url.includes('youtube.com/watch') && !url.includes('youtu.be/')) {
+                statusDiv.innerHTML = `
+                    <div class="message message-error" style="margin-top: 0.5rem;">
+                        Please enter a valid YouTube URL
+                    </div>
+                `;
+                setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+                return;
+            }
+
+            statusDiv.innerHTML = `
+                <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                    Processing YouTube video... <span class="spinner" style="width: 12px; height: 12px; display: inline-block;"></span>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/upload/youtube`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        language: language,
+                        translate: translate
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="message message-success" style="margin-top: 0.5rem;">
+                            ✓ YouTube video queued for processing!
+                            <br><small>Video ID: ${data.video_id}</small>
+                            <br><small>Source ID: ${data.source_id}</small>
+                        </div>
+                    `;
+                    // Clear URL input
+                    urlInput.value = '';
+                } else {
+                    const error = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="message message-error" style="margin-top: 0.5rem;">
+                            ✗ Processing failed: ${error.detail || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('YouTube upload error:', error);
+                statusDiv.innerHTML = `
+                    <div class="message message-error" style="margin-top: 0.5rem;">
+                        ✗ Processing failed: ${error.message || 'Network error'}
+                    </div>
+                `;
+            }
+
+            // Clear status after 10 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 10000);
+        }
+    </script>
+</body>
+</html>

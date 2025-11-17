@@ -59,7 +59,7 @@ gcloud auth list
 - [ ] Summaries datastore created with `_gcs_store` suffix
 
 ### 6. Environment Configuration
-- [ ] `.env` file exists in `centef-rag-two-tier/` directory
+- [ ] `.env` file exists in `centef-rag-fresh/` directory
 - [ ] All required variables set (see checklist below)
 - [ ] JWT_SECRET_KEY is strong (32+ characters)
 - [ ] Datastore IDs include `_gcs_store` suffix
@@ -104,7 +104,7 @@ VALID_API_KEYS=                    # Optional: comma-separated API keys
 
 ### 7. Sample Users Created
 ```powershell
-cd centef-rag-two-tier
+cd centef-rag-fresh
 python init_users.py
 ```
 
@@ -122,7 +122,7 @@ python init_users.py
 ### Backend Deployment
 ```powershell
 $env:PROJECT_ID = "your-project-id"
-cd centef-rag-two-tier
+cd centef-rag-fresh
 .\deploy-backend.ps1
 ```
 

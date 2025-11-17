@@ -14,11 +14,12 @@
                     <img src="images/CENTEF_logo_new.svg" alt="CENTEF Logo" class="nav-logo">
                 </a>
                 <a href="chat.html" class="nav-logo-link">
-                    <img src="images/Munir_logo_new.png" alt="Munir Logo" class="nav-logo">
+                    <img src="images/munir_logo_fixed.svg" alt="Munir Logo" class="nav-logo">
                 </a>
             </div>
             <div class="nav-links">
                 <a href="chat.html">Chat</a>
+                <a href="contribute.html">Contribute</a>
                 <a href="manifest.html" class="admin-only">Manifest</a>
                 <a href="users.html" class="admin-only">Users</a>
                 <div class="user-info">
@@ -40,26 +41,16 @@
                 <div id="session-list" class="session-list">
                     <div class="loading">Loading sessions...</div>
                 </div>
-                
-                <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border-color);">
-                
-                <h3>Contribute to CENTEF's Knowledge Base</h3>
-                <div class="upload-section" id="upload-section">
-                    <p>Drag & drop files here or click to browse</p>
-                    <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.srt" style="display: none;">
-                    <button class="btn btn-primary btn-sm" onclick="document.getElementById('file-input').click()" style="margin-top: 1rem;">
-                        Choose Files
-                    </button>
-                </div>
-                <div id="upload-status"></div>
             </div>
             
             <!-- Main Chat Area -->
             <div class="main-content">
                 <div class="chat-messages" id="chat-messages">
                     <div id="welcome-screen" style="text-align: center; padding: 3rem 2rem;">
-                        <h2 style="color: var(--text-heading); margin-bottom: 1rem;">Welcome to CENTEF's AI Platform</h2>
-                        <p style="color: var(--text-gray); margin-bottom: 2rem;">Chat with CENTEF's research and knowledge</p>
+                        <img src="images/munir_logo_fixed.svg" alt="Munir Logo" style="max-width: 300px; width: 100%; height: auto; margin-bottom: 1.5rem;">
+                        <p style="color: var(--text-gray); margin-bottom: 2rem; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+                            Munir is CENTEF's proprietary AI research assistant, designed to deliver clear, grounded, and transparent insights. All of Munir's responses are based directly on CENTEF's research documents as well as other trusted and verifiable sources—ensuring accuracy, reliability, and full traceability in every answer.
+                        </p>
 
                         <div style="max-width: 600px; margin: 0 auto;">
                             <h3 style="font-size: 1rem; color: var(--text-heading); margin-bottom: 1rem;">Suggested Questions:</h3>
@@ -82,10 +73,13 @@
                 </div>
                 
                 <div class="chat-input-container">
-                    <input type="text" id="chat-input" placeholder="Ask a question..." 
+                    <input type="text" id="chat-input" placeholder="Ask a question..."
                            onkeypress="if(event.key==='Enter') sendMessage()">
                     <button class="btn btn-primary" onclick="sendMessage()">Send</button>
                 </div>
+                <p style="text-align: center; font-size: 0.75rem; color: var(--text-gray); margin-top: 0.5rem; padding: 0 1rem;">
+                    This AI system provides generated content that may not always be accurate or complete. Always verify information with trusted sources.
+                </p>
             </div>
         </div>
     </div>
@@ -101,7 +95,6 @@
         // Load sessions on page load
         window.addEventListener('DOMContentLoaded', () => {
             loadSessions();
-            setupFileUpload();
         });
         
         // Load chat sessions
@@ -180,8 +173,10 @@
             if (messages.length === 0) {
                 chatMessages.innerHTML = `
                     <div id="welcome-screen" style="text-align: center; padding: 3rem 2rem;">
-                        <h2 style="color: var(--text-heading); margin-bottom: 1rem;">Welcome to CENTEF's AI Platform</h2>
-                        <p style="color: var(--text-gray); margin-bottom: 2rem;">Chat with CENTEF's research and knowledge</p>
+                        <img src="images/munir_logo_fixed.svg" alt="Munir Logo" style="max-width: 300px; width: 100%; height: auto; margin-bottom: 1.5rem;">
+                        <p style="color: var(--text-gray); margin-bottom: 2rem; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+                            Munir is CENTEF's proprietary AI research assistant, designed to deliver clear, grounded, and transparent insights. All of Munir's responses are based directly on CENTEF's research documents as well as other trusted and verifiable sources—ensuring accuracy, reliability, and full traceability in every answer.
+                        </p>
 
                         <div style="max-width: 600px; margin: 0 auto;">
                             <h3 style="font-size: 1rem; color: var(--text-heading); margin-bottom: 1rem;">Suggested Questions:</h3>
@@ -353,98 +348,7 @@
                 input.focus();
             }
         }
-        
-        // File upload setup
-        function setupFileUpload() {
-            const uploadSection = document.getElementById('upload-section');
-            const fileInput = document.getElementById('file-input');
-            
-            // Drag and drop
-            uploadSection.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadSection.classList.add('dragover');
-            });
-            
-            uploadSection.addEventListener('dragleave', () => {
-                uploadSection.classList.remove('dragover');
-            });
-            
-            uploadSection.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadSection.classList.remove('dragover');
-                handleFiles(e.dataTransfer.files);
-            });
-            
-            // Click to browse
-            uploadSection.addEventListener('click', (e) => {
-                if (e.target === uploadSection || e.target.tagName === 'P') {
-                    fileInput.click();
-                }
-            });
-            
-            fileInput.addEventListener('change', () => {
-                handleFiles(fileInput.files);
-            });
-        }
-        
-        // Handle file uploads
-        async function handleFiles(files) {
-            const statusDiv = document.getElementById('upload-status');
-            statusDiv.innerHTML = '';
-            
-            for (const file of files) {
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                statusDiv.innerHTML += `
-                    <div style="margin-top: 0.5rem; font-size: 0.875rem;">
-                        Uploading ${escapeHtml(file.name)}... <span class="spinner" style="width: 12px; height: 12px; display: inline-block;"></span>
-                    </div>
-                `;
-                
-                try {
-                    // Note: You'll need to implement file upload endpoint in main.py
-                    const response = await fetch(`${API_BASE_URL}/upload`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${getToken()}`
-                        },
-                        body: formData
-                    });
-                    
-                    if (response.ok) {
-                        statusDiv.innerHTML += `
-                            <div class="message message-success" style="margin-top: 0.5rem;">
-                                ✓ ${escapeHtml(file.name)} uploaded successfully
-                            </div>
-                        `;
-                    } else {
-                        const error = await response.json();
-                        statusDiv.innerHTML += `
-                            <div class="message message-error" style="margin-top: 0.5rem;">
-                                ✗ ${escapeHtml(file.name)}: ${error.detail || 'Upload failed'}
-                            </div>
-                        `;
-                    }
-                } catch (error) {
-                    console.error('Upload error:', error);
-                    statusDiv.innerHTML += `
-                        <div class="message message-error" style="margin-top: 0.5rem;">
-                            ✗ ${escapeHtml(file.name)}: Upload failed
-                        </div>
-                    `;
-                }
-            }
-            
-            // Clear file input
-            document.getElementById('file-input').value = '';
-            
-            // Clear status after 5 seconds
-            setTimeout(() => {
-                statusDiv.innerHTML = '';
-            }, 5000);
-        }
-        
+
         // Utility functions
         function escapeHtml(text) {
             const div = document.createElement('div');

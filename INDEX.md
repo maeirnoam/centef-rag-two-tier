@@ -74,7 +74,7 @@ A complete, production-ready deployment infrastructure for the CENTEF RAG system
 .\test-docker-local.ps1
 ```
 
-**Location:** `centef-rag-two-tier/` (root directory)
+**Location:** `centef-rag-fresh/` (root directory)
 
 ### What Each Script Does
 
@@ -129,7 +129,7 @@ A complete, production-ready deployment infrastructure for the CENTEF RAG system
 ## 📖 Documentation Structure
 
 ```
-📁 centef-rag-two-tier/
+📁 centef-rag-fresh/
 │
 ├─ 🚀 QUICK START
 │  ├─ QUICK_DEPLOY.md              ⭐ 3-step deployment

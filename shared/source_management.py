@@ -4,7 +4,7 @@ Handles cascading deletion and source lifecycle operations.
 """
 import logging
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple
 
 from google.cloud import storage
 from google.cloud import discoveryengine_v1beta as discoveryengine
@@ -23,6 +23,47 @@ VERTEX_SEARCH_LOCATION = os.getenv("VERTEX_SEARCH_LOCATION", "global")
 CHUNKS_DATASTORE_ID = os.getenv("CHUNKS_DATASTORE_ID")
 SUMMARIES_DATASTORE_ID = os.getenv("SUMMARIES_DATASTORE_ID")
 SOURCE_BUCKET = os.getenv("SOURCE_BUCKET", "centef-rag-bucket")
+
+
+def _parse_gcs_uri(gcs_uri: str) -> Tuple[str, str]:
+    """
+    Parse a gs:// URI into bucket and blob path.
+    """
+    if not gcs_uri.startswith("gs://"):
+        raise ValueError(f"Unsupported GCS URI: {gcs_uri}")
+    
+    remainder = gcs_uri[len("gs://") :]
+    if "/" not in remainder:
+        raise ValueError(f"GCS URI missing object path: {gcs_uri}")
+    
+    bucket, blob_path = remainder.split("/", 1)
+    if not bucket or not blob_path:
+        raise ValueError(f"Invalid GCS URI: {gcs_uri}")
+    
+    return bucket, blob_path
+
+
+def _delete_gcs_blob(gcs_uri: str, storage_client: storage.Client) -> Tuple[bool, Optional[str]]:
+    """
+    Delete a blob referenced by a gs:// URI.
+    
+    Returns:
+        (success_or_missing, error_message)
+    """
+    try:
+        bucket_name, blob_path = _parse_gcs_uri(gcs_uri)
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        
+        if blob.exists():
+            blob.delete()
+            logger.info(f"Deleted GCS object: {gcs_uri}")
+        else:
+            logger.warning(f"GCS object not found (already deleted): {gcs_uri}")
+        return True, None
+    except Exception as exc:
+        logger.error(f"Failed to delete GCS object {gcs_uri}: {exc}")
+        return False, str(exc)
 
 
 def delete_source_completely(source_id: str) -> Dict[str, Any]:
@@ -80,62 +121,32 @@ def delete_source_completely(source_id: str) -> Dict[str, Any]:
     
     # Initialize GCS client
     storage_client = storage.Client(project=PROJECT_ID)
-    bucket = storage_client.bucket(SOURCE_BUCKET)
-    
+
+    def _delete_and_track(uri: Optional[str], key: str, label: str, fallback: Optional[str] = None):
+        target_uri = uri or fallback
+        if not target_uri:
+            return
+
+        if not target_uri.startswith("gs://"):
+            logger.warning(f"Skipping {label} deletion for non-GCS URI: {target_uri}")
+            return
+
+        success, error = _delete_gcs_blob(target_uri, storage_client)
+        result["deleted"][key] = success
+        if error:
+            result["errors"].append(f"{label}: {error}")
+
     # 1. Delete source file from GCS
-    if entry.source_uri:
-        try:
-            # Extract blob path from gs://bucket/path
-            blob_path = entry.source_uri.replace(f"gs://{SOURCE_BUCKET}/", "")
-            blob = bucket.blob(blob_path)
-            
-            if blob.exists():
-                blob.delete()
-                result["deleted"]["source_file"] = True
-                logger.info(f"Deleted source file: {entry.source_uri}")
-            else:
-                logger.warning(f"Source file not found: {entry.source_uri}")
-                result["deleted"]["source_file"] = True  # Count as success if already gone
-        except Exception as e:
-            error_msg = f"Failed to delete source file: {str(e)}"
-            logger.error(error_msg)
-            result["errors"].append(error_msg)
+    source_fallback = None
+    if not entry.source_uri and entry.filename:
+        source_fallback = f"gs://{SOURCE_BUCKET}/sources/{entry.filename}"
+    _delete_and_track(entry.source_uri, "source_file", "source file", fallback=source_fallback)
     
     # 2. Delete chunks JSONL from GCS
-    if entry.data_path:
-        try:
-            blob_path = entry.data_path.replace(f"gs://{SOURCE_BUCKET}/", "")
-            blob = bucket.blob(blob_path)
-            
-            if blob.exists():
-                blob.delete()
-                result["deleted"]["chunks_file"] = True
-                logger.info(f"Deleted chunks file: {entry.data_path}")
-            else:
-                logger.warning(f"Chunks file not found: {entry.data_path}")
-                result["deleted"]["chunks_file"] = True
-        except Exception as e:
-            error_msg = f"Failed to delete chunks file: {str(e)}"
-            logger.error(error_msg)
-            result["errors"].append(error_msg)
+    _delete_and_track(entry.data_path, "chunks_file", "chunks file")
     
     # 3. Delete summary JSONL from GCS
-    if entry.summary_path:
-        try:
-            blob_path = entry.summary_path.replace(f"gs://{SOURCE_BUCKET}/", "")
-            blob = bucket.blob(blob_path)
-            
-            if blob.exists():
-                blob.delete()
-                result["deleted"]["summary_file"] = True
-                logger.info(f"Deleted summary file: {entry.summary_path}")
-            else:
-                logger.warning(f"Summary file not found: {entry.summary_path}")
-                result["deleted"]["summary_file"] = True
-        except Exception as e:
-            error_msg = f"Failed to delete summary file: {str(e)}"
-            logger.error(error_msg)
-            result["errors"].append(error_msg)
+    _delete_and_track(entry.summary_path, "summary_file", "summary file")
     
     # 4. Delete indexed chunks from Discovery Engine
     try:

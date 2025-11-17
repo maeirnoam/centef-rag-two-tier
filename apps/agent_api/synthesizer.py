@@ -4,7 +4,9 @@ Combines retrieval results and generates answers using Gemini.
 """
 import logging
 import os
+import re
 from typing import List, Dict, Any, Optional
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 import vertexai
@@ -23,6 +25,12 @@ logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 GENERATION_LOCATION = os.getenv("GENERATION_LOCATION", "us-central1")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+SOURCE_BUCKET = os.getenv("SOURCE_BUCKET", "centef-rag-bucket")
+SOURCE_OBJECT_PREFIX = os.getenv("SOURCE_OBJECT_PREFIX", "sources")
+
+DOCUMENT_LABEL_PATTERN = re.compile(r"(?i)Document\s+(\d+)")
+CHUNK_LABEL_PATTERN = re.compile(r"(?i)Chunk\s+(\d+)")
+BRACKET_CONTENT_PATTERN = re.compile(r"\[(.*?)\]", re.DOTALL)
 
 # Fallback models in case of rate limits or errors
 FALLBACK_MODELS = [
@@ -214,6 +222,141 @@ def format_page_range(pages: List[int]) -> str:
     return ", ".join(ranges)
 
 
+def build_authorized_url(source_uri: Optional[str]) -> Optional[str]:
+    """
+    Convert a gs:// URI into a browser-accessible https URL.
+
+    Args:
+        source_uri: The raw source URI (gs:// or https://)
+
+    Returns:
+        HTTPS URL suitable for browser access, or None if unavailable
+    """
+    if not source_uri:
+        return None
+
+    if source_uri.startswith("http://") or source_uri.startswith("https://"):
+        return source_uri
+
+    if source_uri.startswith("gs://"):
+        path = source_uri[len("gs://") :]
+        if not path:
+            return None
+
+        bucket, _, object_path = path.partition("/")
+        if not bucket:
+            return None
+
+        if object_path:
+            encoded_path = "/".join(quote(part, safe="") for part in object_path.split("/"))
+            return f"https://storage.cloud.google.com/{bucket}/{encoded_path}"
+        return f"https://storage.cloud.google.com/{bucket}"
+
+    return source_uri
+
+
+def resolve_source_uri(
+    manifest_entry: Optional["ManifestEntry"],
+    primary_metadata: Optional[Dict[str, Any]] = None,
+    secondary_metadata: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """
+    Determine the best available URI for a source.
+    Tries manifest, metadata, and finally constructs a GCS path using filename.
+    """
+    if manifest_entry and manifest_entry.source_uri:
+        return manifest_entry.source_uri
+
+    def _extract_candidate(metadata: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not isinstance(metadata, dict):
+            return None
+        for key in ("source_uri", "sourceUrl", "source_url", "gcs_uri", "gcsUrl", "url"):
+            value = metadata.get(key)
+            if value:
+                return value
+        return None
+
+    candidate = _extract_candidate(primary_metadata) or _extract_candidate(secondary_metadata)
+    if candidate:
+        return candidate
+
+    filename = None
+    if manifest_entry and manifest_entry.filename:
+        filename = manifest_entry.filename
+    else:
+        if isinstance(primary_metadata, dict):
+            filename = primary_metadata.get("filename")
+        if not filename and isinstance(secondary_metadata, dict):
+            filename = secondary_metadata.get("filename")
+
+    if filename and SOURCE_BUCKET:
+        prefix = SOURCE_OBJECT_PREFIX.strip("/")
+        filename_part = filename.lstrip("/")
+        if prefix:
+            return f"gs://{SOURCE_BUCKET}/{prefix}/{filename_part}"
+        return f"gs://{SOURCE_BUCKET}/{filename_part}"
+
+    return None
+
+
+def _replace_label_token(text: str, pattern: re.Pattern, label_map: Dict[str, str]) -> str:
+    def _sub(match: re.Match) -> str:
+        key = match.group(1)
+        return label_map.get(key, match.group(0))
+
+    return pattern.sub(_sub, text)
+
+
+def normalize_citation_labels(
+    citations: List[str],
+    document_label_map: Dict[str, str],
+    chunk_label_map: Dict[str, str],
+) -> List[str]:
+    """
+    Replace placeholder labels like 'Document 1' with real titles for consistency.
+
+    Args:
+        citations: Raw citations parsed from the model output
+        document_label_map: Mapping of document indices to titles
+        chunk_label_map: Mapping of chunk indices to titles
+
+    Returns:
+        Cleaned list of citations referencing actual document titles
+    """
+    if not citations:
+        return []
+
+    normalized = []
+    seen = set()
+
+    for citation in citations:
+        updated = _replace_label_token(citation, DOCUMENT_LABEL_PATTERN, document_label_map)
+        updated = _replace_label_token(updated, CHUNK_LABEL_PATTERN, chunk_label_map)
+        updated = updated.strip()
+        if updated and updated not in seen:
+            normalized.append(updated)
+            seen.add(updated)
+
+    return normalized
+
+
+def replace_inline_placeholder_labels(
+    text: str,
+    document_label_map: Dict[str, str],
+    chunk_label_map: Dict[str, str],
+) -> str:
+    """
+    Replace inline [Document N, ...] / [Chunk N, ...] tokens with actual titles.
+    """
+    def _sub(match: re.Match) -> str:
+        content = match.group(1)
+        replaced = _replace_label_token(content, DOCUMENT_LABEL_PATTERN, document_label_map)
+        replaced = _replace_label_token(replaced, CHUNK_LABEL_PATTERN, chunk_label_map)
+        return f"[{replaced}]"
+
+    return BRACKET_CONTENT_PATTERN.sub(_sub, text)
+
+
 def parse_citations_from_answer(answer_text: str) -> tuple[str, List[str]]:
     """
     Parse the answer to extract the main text and explicit citations.
@@ -353,45 +496,91 @@ def synthesize_answer(
     # Extract source citations from results
     # Track sources with their page numbers/timestamps
     source_map = {}  # source_id -> source info with pages list
+    document_label_map: Dict[str, str] = {}
+    chunk_label_map: Dict[str, str] = {}
     
     # Import manifest to get source_uri
     from shared.manifest import get_manifest_entry
 
+    manifest_cache: Dict[str, Optional["ManifestEntry"]] = {}
+
+    def fetch_manifest_entry(source_id: Optional[str]):
+        if not source_id:
+            return None
+        if source_id not in manifest_cache:
+            manifest_cache[source_id] = get_manifest_entry(source_id)
+        return manifest_cache[source_id]
+
     # Add summaries (no page numbers, represent whole document)
-    for summary in summary_results:
+    for idx, summary in enumerate(summary_results, 1):
         source_id = summary.get('source_id')
+        manifest_entry = fetch_manifest_entry(source_id)
+        summary_title = (
+            summary.get('title')
+            or (manifest_entry.title if manifest_entry else None)
+            or summary.get('filename')
+            or source_id
+            or f"Document {idx}"
+        )
+        document_label_map[str(idx)] = summary_title
+
         if source_id and source_id not in source_map:
-            # Get manifest entry to retrieve source_uri
-            manifest_entry = get_manifest_entry(source_id)
+            raw_source_uri = resolve_source_uri(manifest_entry, summary)
+            filename_value = summary.get('filename') or (manifest_entry.filename if manifest_entry else source_id)
             source_map[source_id] = {
                 "source_id": source_id,
-                "title": summary.get('title') or (manifest_entry.title if manifest_entry else source_id),
-                "filename": summary.get('filename') or (manifest_entry.filename if manifest_entry else source_id),
-                "source_uri": manifest_entry.source_uri if manifest_entry else None,
+                "title": summary_title,
+                "filename": filename_value,
+                "source_uri": raw_source_uri,
+                "authorized_url": build_authorized_url(raw_source_uri),
                 "type": "summary",
                 "pages": []
             }
     
     # Add chunks (with page numbers/timestamps)
-    for chunk in chunk_results:
+    for idx, chunk in enumerate(chunk_results, 1):
         source_id = chunk.get('source_id')
+        manifest_entry = fetch_manifest_entry(source_id)
+        chunk_metadata = chunk.get('metadata') if isinstance(chunk.get('metadata'), dict) else {}
+        chunk_title = (
+            chunk.get('title')
+            or (manifest_entry.title if manifest_entry else None)
+            or chunk.get('filename')
+            or source_id
+            or f"Chunk {idx}"
+        )
+        chunk_label_map[str(idx)] = chunk_title
+
         if not source_id:
             continue
 
+        raw_source_uri = resolve_source_uri(
+            manifest_entry,
+            chunk,
+            chunk_metadata
+        )
+
         if source_id not in source_map:
-            # Get manifest entry to retrieve source_uri
-            manifest_entry = get_manifest_entry(source_id)
+            filename_value = chunk.get('filename') or (manifest_entry.filename if manifest_entry else source_id)
             source_map[source_id] = {
                 "source_id": source_id,
-                "title": chunk.get('title') or (manifest_entry.title if manifest_entry else source_id),
-                "filename": chunk.get('filename') or (manifest_entry.filename if manifest_entry else source_id),
-                "source_uri": manifest_entry.source_uri if manifest_entry else None,
+                "title": chunk_title,
+                "filename": filename_value,
+                "source_uri": raw_source_uri,
+                "authorized_url": build_authorized_url(raw_source_uri),
                 "type": "chunk",
                 "pages": []
             }
+        else:
+            existing = source_map[source_id]
+            if raw_source_uri and not existing.get("authorized_url"):
+                existing["source_uri"] = existing.get("source_uri") or raw_source_uri
+                existing["authorized_url"] = build_authorized_url(raw_source_uri)
         
         # Add page number if available
         page = chunk.get('page_number')
+        if page is None:
+            page = chunk.get('page')
         if page is not None and page not in source_map[source_id]['pages']:
             source_map[source_id]['pages'].append(page)
         
@@ -420,12 +609,29 @@ def synthesize_answer(
     # Separate cited sources from context-only sources
     # For now, all retrieved sources are "context sources"
     # The explicit_citations from the answer tell us which were actually cited
+
+    normalized_citations = normalize_citation_labels(
+        explicit_citations,
+        document_label_map,
+        chunk_label_map,
+    )
     
+    main_answer = replace_inline_placeholder_labels(
+        main_answer,
+        document_label_map,
+        chunk_label_map,
+    )
+    sanitized_full_answer = replace_inline_placeholder_labels(
+        answer_text,
+        document_label_map,
+        chunk_label_map,
+    )
+
     result = {
         "query": query,
         "answer": main_answer,  # Main answer without citations section
-        "full_answer": answer_text,  # Full answer including citations section
-        "explicit_citations": explicit_citations,  # List of citation strings
+        "full_answer": sanitized_full_answer,  # Full answer including citations section
+        "explicit_citations": normalized_citations,  # List of citation strings
         "sources": all_sources,  # All sources used for context
         "num_summaries_used": len(summary_results),
         "num_chunks_used": len(chunk_results),

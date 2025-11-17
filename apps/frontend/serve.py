@@ -1,6 +1,6 @@
 """
 Simple HTTP server to serve the frontend files.
-Run this from the centef-rag-two-tier/apps/frontend directory.
+Run this from the centef-rag-fresh/apps/frontend directory.
 Supports PORT environment variable for Cloud Run deployment.
 """
 import http.server

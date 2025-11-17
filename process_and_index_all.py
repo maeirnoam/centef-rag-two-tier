@@ -22,7 +22,7 @@ from tools.processing.summarize_chunks import summarize_chunks_to_summary
 from services.embedding.index_documents import index_document
 
 # Configuration
-LOCAL_FOLDER = r"C:\Users\User\PycharmProjects\CENTEF\Data Samples v1\Data Samples v1\CTF - Essential Readings"
+LOCAL_FOLDER = r"C:\Users\User\PycharmProjects\centef-rag-fresh\data\CTF - Essential Readings"
 
 print("="*80)
 print("END-TO-END PROCESSING PIPELINE")

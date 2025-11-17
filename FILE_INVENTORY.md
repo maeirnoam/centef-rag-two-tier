@@ -221,7 +221,7 @@ README.md (Entry point)
 ## 📁 Repository Structure After Deployment
 
 ```
-centef-rag-two-tier/
+centef-rag-fresh/
 ├── README.md                      # ✏️ Updated
 ├── requirements.txt               # ✏️ Updated (added gunicorn)
 │

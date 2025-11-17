@@ -1,1 +1,1 @@
-"""Shared package initialization."""
+# Shared utilities package

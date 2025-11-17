@@ -130,7 +130,7 @@ Document searchable in chat queries
 
 ### Option 1: One Command (Recommended)
 ```powershell
-cd centef-rag-two-tier
+cd centef-rag-fresh
 .\start_local.ps1
 ```
 

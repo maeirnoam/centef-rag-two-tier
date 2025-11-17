@@ -339,6 +339,13 @@ def _load_session_metadata(user_id: str, session_id: str) -> Optional[Conversati
         return None
 
 
+def get_session_metadata(user_id: str, session_id: str) -> Optional[ConversationSession]:
+    """
+    Public helper to fetch session metadata even if no messages exist yet.
+    """
+    return _load_session_metadata(user_id, session_id)
+
+
 def _update_session_metadata(user_id: str, session_id: str, tokens_to_add: int = 0) -> None:
     """
     Update session metadata after adding a message.

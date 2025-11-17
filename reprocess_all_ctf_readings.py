@@ -202,7 +202,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Reprocess all files from CTF Essential Readings")
     parser.add_argument(
         "--directory",
-        default=r"C:\Users\User\PycharmProjects\CENTEF\Data Samples v1\Data Samples v1\CTF - Essential Readings",
+        default=r"C:\Users\User\PycharmProjects\centef-rag-fresh\data\CTF - Essential Readings",
         help="Directory containing files to process"
     )
     parser.add_argument(
@@ -210,7 +210,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Force reprocess even if files are already embedded"
     )
-    
+
     args = parser.parse_args()
-    
+
     reprocess_directory(args.directory, args.force)

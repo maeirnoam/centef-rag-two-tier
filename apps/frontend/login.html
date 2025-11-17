@@ -11,7 +11,7 @@
         <div style="max-width: 400px; margin: 5rem auto;">
             <div class="main-content">
                 <div style="text-align: center; margin-bottom: 2rem;">
-                    <img src="images/munir_logo.png" alt="CENTEF Logo" style="max-width: 200px; height: auto; margin-bottom: 1rem;">
+                    <img src="images/munir_logo_fixed.svg" alt="Munir Logo" style="max-width: 200px; height: auto; margin-bottom: 1rem;">
                     <h1 style="margin: 0;">CENTEF's AI Platform</h1>
                 </div>
                 
@@ -33,11 +33,44 @@
                     <button type="submit" class="btn btn-primary" style="width: 100%;">
                         Login
                     </button>
+
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <a href="#" onclick="showForgotPassword(); return false;" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">
+                            Forgot Password?
+                        </a>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
-    
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="max-width: 400px; width: 90%; background: white; border-radius: 0.5rem; padding: 2rem;">
+            <h2 style="margin-bottom: 1rem;">Reset Password</h2>
+            <p style="color: var(--text-gray); margin-bottom: 1.5rem;">Enter your email address and we'll send you a password reset link.</p>
+
+            <div id="forgot-error-message"></div>
+            <div id="forgot-success-message"></div>
+
+            <form id="forgot-password-form">
+                <div class="form-group">
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" name="email" required placeholder="user@example.com">
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        Send Reset Link
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeForgotPassword()">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="js/auth.js"></script>
     <script>
         // Redirect if already logged in
@@ -71,6 +104,87 @@
                 `;
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Login';
+            }
+        });
+
+        // Forgot password modal functions
+        function showForgotPassword() {
+            document.getElementById('forgot-password-modal').style.display = 'flex';
+            document.getElementById('forgot-email').value = '';
+            document.getElementById('forgot-error-message').innerHTML = '';
+            document.getElementById('forgot-success-message').innerHTML = '';
+        }
+
+        function closeForgotPassword() {
+            document.getElementById('forgot-password-modal').style.display = 'none';
+        }
+
+        // Handle forgot password form submission
+        const forgotForm = document.getElementById('forgot-password-form');
+        const forgotErrorDiv = document.getElementById('forgot-error-message');
+        const forgotSuccessDiv = document.getElementById('forgot-success-message');
+
+        forgotForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('forgot-email').value;
+            const submitBtn = forgotForm.querySelector('button[type="submit"]');
+
+            // Clear previous messages
+            forgotErrorDiv.innerHTML = '';
+            forgotSuccessDiv.innerHTML = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to send reset link');
+                }
+
+                // Show success message
+                forgotSuccessDiv.innerHTML = `
+                    <div class="message message-success">
+                        ${data.message}
+                        ${data.dev_reset_token ? `<br><br><strong>Development Mode:</strong> <a href="${data.dev_reset_url}" style="color: var(--primary-color);">Click here to reset password</a>` : ''}
+                    </div>
+                `;
+
+                // Clear form
+                forgotForm.reset();
+
+                // Auto-close modal after 3 seconds if not in dev mode
+                if (!data.dev_reset_token) {
+                    setTimeout(() => {
+                        closeForgotPassword();
+                    }, 3000);
+                }
+
+            } catch (error) {
+                forgotErrorDiv.innerHTML = `
+                    <div class="message message-error">
+                        ${error.message || 'Failed to send reset link'}
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Reset Link';
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('forgot-password-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'forgot-password-modal') {
+                closeForgotPassword();
             }
         });
     </script>

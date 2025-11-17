@@ -1,0 +1,54 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.conda/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation (but keep README)
+*.md
+!README.md
+docs/
+
+# Tests
+test_*.py
+*_test.py
+tests/
+
+# Local environment files
+.env.local
+.env.*.local
+
+# Temporary files
+*.log
+*.tmp
+temp/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

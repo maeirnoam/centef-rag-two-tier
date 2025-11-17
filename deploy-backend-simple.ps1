@@ -52,6 +52,9 @@ Get-Content ".env" | ForEach-Object {
 # Join with commas for gcloud
 $envString = $envVars -join ","
 
+# Add YOUTUBE_COOKIES_FILE to environment
+$envString = "$envString,YOUTUBE_COOKIES_FILE=/tmp/yt-dlp/youtube_cookies.txt"
+
 Write-Host "Setting environment variables from .env file..." -ForegroundColor Yellow
 
 gcloud run deploy $SERVICE_NAME `

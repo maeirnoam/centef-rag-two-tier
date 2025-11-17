@@ -255,11 +255,33 @@ def write_chunks_to_jsonl(chunks: List[Chunk], output_path: str) -> None:
     """
     logger.info(f"Writing {len(chunks)} chunks to {output_path}")
     
-    # TODO: Handle GCS paths using google.cloud.storage
-    with open(output_path, 'w', encoding='utf-8') as f:
-        for chunk in chunks:
-            json.dump(chunk.to_dict(), f, ensure_ascii=False)
-            f.write('\n')
+    # Handle GCS paths
+    if output_path.startswith("gs://"):
+        import tempfile
+        # Write to temp file first, then upload
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', suffix='.jsonl', delete=False) as f:
+            temp_path = f.name
+            for chunk in chunks:
+                json.dump(chunk.to_dict(), f, ensure_ascii=False)
+                f.write('\n')
+        
+        # Upload to GCS
+        client = storage.Client(project=PROJECT_ID)
+        bucket_name = output_path.replace("gs://", "").split("/")[0]
+        blob_path = "/".join(output_path.replace("gs://", "").split("/")[1:])
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_filename(temp_path)
+        
+        # Clean up temp file
+        import os
+        os.unlink(temp_path)
+    else:
+        # Local file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for chunk in chunks:
+                json.dump(chunk.to_dict(), f, ensure_ascii=False)
+                f.write('\n')
     
     logger.info(f"Successfully wrote chunks to {output_path}")
 

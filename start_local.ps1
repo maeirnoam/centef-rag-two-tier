@@ -5,7 +5,7 @@ Write-Host ""
 
 # Check if we're in the right directory
 if (-not (Test-Path "apps\agent_api\main.py")) {
-    Write-Host "Error: Please run this script from the centef-rag-two-tier directory" -ForegroundColor Red
+    Write-Host "Error: Please run this script from the centef-rag-fresh directory" -ForegroundColor Red
     exit 1
 }
 
