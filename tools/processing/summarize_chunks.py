@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.schemas import Chunk, Summary, read_chunks_from_jsonl, write_summary_to_jsonl
 from shared.manifest import get_manifest_entry, update_manifest_entry, DocumentStatus
+from shared.llm_tracker import track_llm_call
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,32 +57,42 @@ def download_chunks_from_gcs(source_id: str) -> str:
     return local_path
 
 
-def summarize_with_gemini(chunks: List[Chunk]) -> Dict[str, Any]:
+def summarize_with_gemini(chunks: List[Chunk], description: str = None, source_id: str = None) -> Dict[str, Any]:
     """
     Use Gemini to summarize chunks and extract metadata.
-    
+
     Args:
         chunks: List of Chunk objects
-    
+        description: Optional user-provided description to include in analysis
+        source_id: Optional source ID for tracking
+
     Returns:
         Dictionary with summary_text and extracted metadata fields
     """
     logger.info(f"Summarizing {len(chunks)} chunks with Gemini")
-    
+
     # Initialize Vertex AI
     vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
-    
-    # Combine all chunk content
-    combined_text = "\n\n".join([
+
+    # Start with user description if provided
+    combined_text_parts = []
+    if description:
+        combined_text_parts.append(f"User Source Description: {description}")
+        logger.info("Including user description in combined text")
+
+    # Add all chunk content
+    combined_text_parts.extend([
         f"[Chunk {i+1}] {chunk.content}"
         for i, chunk in enumerate(chunks)
     ])
-    
+
+    combined_text = "\n\n".join(combined_text_parts)
+
     # Limit content size to avoid token limits
     max_chars = 30000
     if len(combined_text) > max_chars:
         combined_text = combined_text[:max_chars] + "\n\n[Content truncated...]"
-    
+
     # Build prompt
     prompt = f"""
 Analyze the following document content and provide:
@@ -106,40 +117,59 @@ Respond ONLY with valid JSON in this exact format:
   "tags": ["tag1", "tag2", ...]
 }}
 """
-    
-    try:
-        # Call Gemini with generation config to ensure valid JSON
-        model = GenerativeModel(SUMMARY_MODEL)
-        
-        generation_config = {
-            "temperature": 0.2,
-            "top_p": 0.8,
-            "top_k": 40,
-            "max_output_tokens": 2048,
-        }
-        
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        # Parse JSON response
-        response_text = response.text.strip()
-        
-        # Remove markdown code blocks if present
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-        response_text = response_text.strip()
-        
-        # Try to parse JSON
-        result = json.loads(response_text)
-        logger.info("Successfully generated summary with Gemini")
-        
-        return result
+
+    # Track this LLM call
+    with track_llm_call(
+        source_function="summarize_with_gemini",
+        api_provider="gemini",
+        api_type="generative",
+        model=SUMMARY_MODEL,
+        operation="summarization",
+        source_id=source_id,
+        temperature=0.2,
+        max_tokens=2048
+    ) as call:
+        try:
+            # Call Gemini with generation config to ensure valid JSON
+            model = GenerativeModel(SUMMARY_MODEL)
+
+            generation_config = {
+                "temperature": 0.2,
+                "top_p": 0.8,
+                "top_k": 40,
+                "max_output_tokens": 2048,
+            }
+
+            response = model.generate_content(
+                prompt,
+                generation_config=generation_config
+            )
+
+            # Update token tracking if available
+            if hasattr(response, 'usage_metadata'):
+                call.update_tokens(
+                    input_tokens=getattr(response.usage_metadata, 'prompt_token_count', 0),
+                    output_tokens=getattr(response.usage_metadata, 'candidates_token_count', 0),
+                    total_tokens=getattr(response.usage_metadata, 'total_token_count', 0)
+                )
+
+            # Parse JSON response
+            response_text = response.text.strip()
+
+            # Remove markdown code blocks if present
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
+            # Try to parse JSON
+            result = json.loads(response_text)
+            logger.info("Successfully generated summary with Gemini")
+
+            return result
         
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error: {e}")
@@ -234,9 +264,9 @@ def summarize_chunks(source_id: str) -> str:
         raise ValueError(f"No chunks found for source_id={source_id}")
     
     logger.info(f"Loaded {len(chunks)} chunks")
-    
-    # Summarize with Gemini
-    gemini_result = summarize_with_gemini(chunks)
+
+    # Summarize with Gemini, including description if available
+    gemini_result = summarize_with_gemini(chunks, description=entry.description)
     
     # Create Summary object
     summary = Summary(

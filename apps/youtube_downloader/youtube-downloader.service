@@ -1,0 +1,20 @@
+[Unit]
+Description=YouTube Downloader Service (External API)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/youtube-downloader
+Environment="YOUTUBE_DOWNLOADER_API_KEY=CHANGE_ME_TO_STRONG_RANDOM_KEY"
+Environment="PORT=8080"
+Environment="HOST=0.0.0.0"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/youtube-downloader/venv/bin/python /opt/youtube-downloader/main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/youtube-downloader/output.log
+StandardError=append:/var/log/youtube-downloader/error.log
+
+[Install]
+WantedBy=multi-user.target

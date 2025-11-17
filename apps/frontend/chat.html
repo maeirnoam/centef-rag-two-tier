@@ -220,7 +220,10 @@
 
                     return `
                         <div class="chat-message assistant">
-                            <div class="message-bubble">${formatAnswer(msg.content, msg.sources)}</div>
+                            <div class="message-bubble">
+                                ${formatAnswer(msg.content, msg.sources)}
+                                ${renderFeedbackUI(msg)}
+                            </div>
                             ${sourcesHtml}
                         </div>
                     `;
@@ -329,9 +332,22 @@
                     `;
                 }
 
+                const newMessage = {
+                    message_id: data.message_id,
+                    session_id: currentSessionId,
+                    role: 'assistant',
+                    content: data.answer,
+                    sources: data.sources || [],
+                    feedback_rating: null,
+                    feedback_note: null
+                };
+
                 chatMessages.innerHTML += `
                     <div class="chat-message assistant">
-                        <div class="message-bubble">${formatAnswer(data.answer, data.sources)}</div>
+                        <div class="message-bubble">
+                            ${formatAnswer(data.answer, data.sources)}
+                            ${renderFeedbackUI(newMessage)}
+                        </div>
                         ${sourcesHtml}
                     </div>
                 `;
@@ -480,6 +496,121 @@
             text = text.replace(/\n/g, '<br>');
 
             return text;
+        }
+
+        // Render feedback UI for a message
+        function renderFeedbackUI(msg) {
+            if (!msg.message_id) return '';
+
+            const thumbsUpClass = msg.feedback_rating === 'thumbs_up' ? 'active thumbs-up' : '';
+            const thumbsDownClass = msg.feedback_rating === 'thumbs_down' ? 'active thumbs-down' : '';
+
+            let feedbackText = '';
+            if (msg.feedback_rating) {
+                const ratingText = msg.feedback_rating === 'thumbs_up' ? 'Helpful' : 'Not helpful';
+                feedbackText = `<span class="feedback-text">${ratingText}</span>`;
+            }
+
+            return `
+                <div class="message-feedback">
+                    <button class="feedback-btn thumbs-up ${thumbsUpClass}"
+                            onclick="handleFeedback('${msg.message_id}', '${msg.session_id}', 'thumbs_up', event)"
+                            title="This was helpful">
+                        👍
+                    </button>
+                    <button class="feedback-btn thumbs-down ${thumbsDownClass}"
+                            onclick="handleFeedback('${msg.message_id}', '${msg.session_id}', 'thumbs_down', event)"
+                            title="This was not helpful">
+                        👎
+                    </button>
+                    ${feedbackText}
+                    <div id="feedback-note-${msg.message_id}" class="feedback-note-container">
+                        <textarea class="feedback-note-input"
+                                  id="feedback-note-input-${msg.message_id}"
+                                  placeholder="Optional: Tell us more about your feedback...">${escapeHtml(msg.feedback_note || '')}</textarea>
+                        <div class="feedback-note-actions">
+                            <button class="feedback-note-submit"
+                                    onclick="submitFeedbackNote('${msg.message_id}', '${msg.session_id}')">
+                                Submit
+                            </button>
+                            <button class="feedback-note-cancel"
+                                    onclick="cancelFeedbackNote('${msg.message_id}')">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Handle feedback button clicks
+        async function handleFeedback(messageId, sessionId, rating, event) {
+            event.stopPropagation();
+
+            // For thumbs down, show the note input first without submitting
+            if (rating === 'thumbs_down') {
+                const noteContainer = document.getElementById(`feedback-note-${messageId}`);
+                if (noteContainer) {
+                    // If already showing and user clicked thumbs down again, submit without note
+                    if (noteContainer.classList.contains('show')) {
+                        await submitFeedbackRating(messageId, sessionId, rating);
+                    } else {
+                        // Show the note input
+                        noteContainer.classList.add('show');
+                        document.getElementById(`feedback-note-input-${messageId}`).focus();
+                    }
+                }
+            } else {
+                // For thumbs up, submit immediately
+                await submitFeedbackRating(messageId, sessionId, rating);
+            }
+        }
+
+        // Submit feedback rating (internal function)
+        async function submitFeedbackRating(messageId, sessionId, rating, note = null) {
+            try {
+                const payload = { feedback_rating: rating };
+                if (note !== null) {
+                    payload.feedback_note = note;
+                }
+
+                const response = await apiCall(`/chat/messages/${messageId}/feedback?session_id=${sessionId}`, 'PATCH', payload);
+
+                if (response) {
+                    // Reload chat history to update UI
+                    await loadChatHistory(sessionId);
+                }
+            } catch (error) {
+                console.error('Failed to submit feedback:', error);
+                showError('Failed to submit feedback');
+            }
+        }
+
+        // Submit feedback note
+        async function submitFeedbackNote(messageId, sessionId) {
+            const noteInput = document.getElementById(`feedback-note-input-${messageId}`);
+            const feedbackNote = noteInput.value.trim();
+
+            if (!feedbackNote) {
+                // If no note provided, just submit thumbs down without note
+                await submitFeedbackRating(messageId, sessionId, 'thumbs_down');
+                return;
+            }
+
+            // Submit thumbs down with the note
+            await submitFeedbackRating(messageId, sessionId, 'thumbs_down', feedbackNote);
+        }
+
+        // Cancel feedback note
+        function cancelFeedbackNote(messageId) {
+            const noteContainer = document.getElementById(`feedback-note-${messageId}`);
+            if (noteContainer) {
+                noteContainer.classList.remove('show');
+                const noteInput = document.getElementById(`feedback-note-input-${messageId}`);
+                if (noteInput && !noteInput.value.trim()) {
+                    noteInput.value = '';
+                }
+            }
         }
     </script>
 </body>

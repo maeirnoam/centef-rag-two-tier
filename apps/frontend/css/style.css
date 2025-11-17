@@ -499,13 +499,118 @@ nav {
     background-color: var(--bg-light);
 }
 
+/* Message Feedback */
+.message-feedback {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.feedback-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
+    color: var(--text-gray);
+    transition: all 0.2s;
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.feedback-btn:hover {
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+}
+
+.feedback-btn.active {
+    color: var(--primary-color);
+    background-color: rgba(56, 142, 211, 0.1);
+}
+
+.feedback-btn.thumbs-up.active {
+    color: var(--success-color);
+    background-color: rgba(16, 185, 129, 0.1);
+}
+
+.feedback-btn.thumbs-down.active {
+    color: var(--danger-color);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.feedback-text {
+    font-size: 0.75rem;
+    color: var(--text-gray);
+    margin-left: 0.5rem;
+}
+
+.feedback-note-container {
+    margin-top: 0.5rem;
+    display: none;
+}
+
+.feedback-note-container.show {
+    display: block;
+}
+
+.feedback-note-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.feedback-note-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.feedback-note-submit {
+    padding: 0.375rem 0.75rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color 0.2s;
+}
+
+.feedback-note-submit:hover {
+    background-color: var(--primary-hover);
+}
+
+.feedback-note-cancel {
+    padding: 0.375rem 0.75rem;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.feedback-note-cancel:hover {
+    background-color: var(--border-color);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .split-layout {
         grid-template-columns: 1fr;
         height: auto;
     }
-    
+
     .sidebar {
         height: auto;
     }

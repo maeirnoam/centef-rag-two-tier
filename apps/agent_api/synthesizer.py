@@ -5,12 +5,19 @@ Combines retrieval results and generates answers using Gemini.
 import logging
 import os
 import re
+import sys
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from urllib.parse import quote
 
 from dotenv import load_dotenv
 import vertexai
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from shared.llm_tracker import track_llm_call
 
 # Load environment variables
 load_dotenv()
@@ -398,85 +405,111 @@ def synthesize_answer(
     summary_results: List[Dict[str, Any]],
     chunk_results: List[Dict[str, Any]],
     temperature: float = 0.2,
-    max_output_tokens: int = 2048
+    max_output_tokens: int = 2048,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Generate an answer using Gemini based on retrieval results.
-    
+
     Args:
         query: User's question
         summary_results: Summary search results
         chunk_results: Chunk search results
         temperature: Model temperature (0.0 - 1.0)
         max_output_tokens: Maximum length of generated answer
-    
+        user_id: Optional user ID for tracking
+        session_id: Optional session ID for tracking
+
     Returns:
         Dictionary with answer text and metadata
     """
     logger.info(f"Synthesizing answer for query: {query}")
     logger.info(f"Using {len(summary_results)} summaries and {len(chunk_results)} chunks")
-    
+
     # Build prompt
     prompt = build_synthesis_prompt(query, summary_results, chunk_results)
-    
+
     logger.info(f"Prompt length: {len(prompt)} characters")
-    
+
     # Configure generation
     generation_config = GenerationConfig(
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         top_p=0.95,
     )
-    
+
     # Try models in order until one succeeds
     answer_text = None
     model_used = None
     last_error = None
     usage_metadata = None  # Track token usage
-    
+
     for model_name in FALLBACK_MODELS:
-        try:
-            logger.info(f"Attempting model: {model_name}")
-            model = GenerativeModel(model_name)
-            
-            response = model.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
-            
-            answer_text = response.text
-            model_used = model_name
-            
-            # Extract token usage if available
-            if hasattr(response, 'usage_metadata'):
-                usage_metadata = {
-                    'prompt_token_count': getattr(response.usage_metadata, 'prompt_token_count', 0),
-                    'candidates_token_count': getattr(response.usage_metadata, 'candidates_token_count', 0),
-                    'total_token_count': getattr(response.usage_metadata, 'total_token_count', 0),
-                }
-                logger.info(f"Token usage: {usage_metadata}")
-            
-            logger.info(f"✅ Success with {model_name} - Generated {len(answer_text)} characters")
-            break
-            
-        except Exception as e:
-            error_msg = str(e)
-            logger.warning(f"❌ Model {model_name} failed: {error_msg}")
-            last_error = e
-            
-            # Check if it's a rate limit error (429)
-            if "429" in error_msg or "Resource exhausted" in error_msg:
-                logger.info(f"Rate limit hit on {model_name}, trying next fallback...")
+        # Track this LLM call
+        with track_llm_call(
+            source_function="synthesize_answer",
+            api_provider="gemini",
+            api_type="generative",
+            model=model_name,
+            operation="chat_answer",
+            user_id=user_id,
+            session_id=session_id,
+            temperature=temperature,
+            max_tokens=max_output_tokens
+        ) as call:
+            try:
+                logger.info(f"Attempting model: {model_name}")
+                model = GenerativeModel(model_name)
+
+                response = model.generate_content(
+                    prompt,
+                    generation_config=generation_config
+                )
+
+                answer_text = response.text
+                model_used = model_name
+
+                # Extract token usage if available
+                if hasattr(response, 'usage_metadata'):
+                    usage_metadata = {
+                        'prompt_token_count': getattr(response.usage_metadata, 'prompt_token_count', 0),
+                        'candidates_token_count': getattr(response.usage_metadata, 'candidates_token_count', 0),
+                        'total_token_count': getattr(response.usage_metadata, 'total_token_count', 0),
+                    }
+                    logger.info(f"Token usage: {usage_metadata}")
+
+                    # Update tracking with token counts
+                    call.update_tokens(
+                        input_tokens=usage_metadata['prompt_token_count'],
+                        output_tokens=usage_metadata['candidates_token_count'],
+                        total_tokens=usage_metadata['total_token_count']
+                    )
+
+                logger.info(f"✅ Success with {model_name} - Generated {len(answer_text)} characters")
+                break
+
+            except Exception as e:
+                error_msg = str(e)
+                logger.warning(f"❌ Model {model_name} failed: {error_msg}")
+                last_error = e
+
+                # Mark call as error in tracking
+                call.set_error(error_msg)
+
+                # Check if it's a rate limit error (429)
+                if "429" in error_msg or "Resource exhausted" in error_msg:
+                    logger.info(f"Rate limit hit on {model_name}, trying next fallback...")
+                    continue
+
+                # Check if it's a quota error
+                if "quota" in error_msg.lower() or "insufficient" in error_msg.lower():
+                    logger.info(f"Quota issue on {model_name}, trying next fallback...")
+                    continue
+
+                # For other errors, try next model but log more details
+                logger.error(f"Unexpected error with {model_name}: {error_msg}")
                 continue
-            
-            # Check if it's a quota error
-            if "quota" in error_msg.lower() or "insufficient" in error_msg.lower():
-                logger.info(f"Quota issue on {model_name}, trying next fallback...")
-                continue
-            
-            # For other errors, try next model but log more details
-            logger.error(f"Unexpected error with {model_name}: {error_msg}")
-            continue
     
     # If all models failed, use fallback response
     if answer_text is None:

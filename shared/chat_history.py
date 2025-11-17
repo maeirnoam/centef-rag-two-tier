@@ -52,7 +52,12 @@ class ChatMessage:
     
     # Query metadata
     query_metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
+    # User feedback
+    feedback_rating: Optional[str] = None  # "thumbs_up" or "thumbs_down"
+    feedback_note: Optional[str] = None
+    feedback_timestamp: Optional[str] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSONL serialization."""
         return {
@@ -69,6 +74,9 @@ class ChatMessage:
             "output_tokens": self.output_tokens,
             "total_tokens": self.total_tokens,
             "query_metadata": self.query_metadata,
+            "feedback_rating": self.feedback_rating,
+            "feedback_note": self.feedback_note,
+            "feedback_timestamp": self.feedback_timestamp,
         }
     
     @classmethod
@@ -88,6 +96,9 @@ class ChatMessage:
             output_tokens=data.get("output_tokens"),
             total_tokens=data.get("total_tokens"),
             query_metadata=data.get("query_metadata", {}),
+            feedback_rating=data.get("feedback_rating"),
+            feedback_note=data.get("feedback_note"),
+            feedback_timestamp=data.get("feedback_timestamp"),
         )
 
 
@@ -464,39 +475,97 @@ def delete_session(user_id: str, session_id: str) -> bool:
 def update_session_title(user_id: str, session_id: str, title: str) -> Optional[ConversationSession]:
     """
     Update the title of a conversation session.
-    
+
     Args:
         user_id: User ID
         session_id: Session ID
         title: New title
-    
+
     Returns:
         Updated ConversationSession or None if not found
     """
     logger.info(f"Updating title for session {session_id}")
-    
+
     try:
         session = _load_session_metadata(user_id, session_id)
         if not session:
             return None
-        
+
         session.title = title
         session.updated_at = datetime.utcnow().isoformat()
-        
+
         # Save updated metadata
         client = _get_storage_client()
         bucket = client.bucket(CHAT_HISTORY_BUCKET)
         metadata_path = f"{CHAT_HISTORY_PATH}/{user_id}/.metadata/{session_id}.json"
         metadata_blob = bucket.blob(metadata_path)
-        
+
         metadata_blob.upload_from_string(
             json.dumps(session.to_dict(), indent=2),
             content_type="application/json"
         )
-        
+
         logger.info(f"Updated session title to: {title}")
         return session
-        
+
     except Exception as e:
         logger.error(f"Error updating session title: {e}", exc_info=True)
         raise
+
+
+def update_message_feedback(
+    user_id: str,
+    session_id: str,
+    message_id: str,
+    feedback_rating: str,
+    feedback_note: Optional[str] = None
+) -> bool:
+    """
+    Update feedback for a specific message.
+
+    Args:
+        user_id: User ID
+        session_id: Session ID
+        message_id: Message ID to update
+        feedback_rating: "thumbs_up" or "thumbs_down"
+        feedback_note: Optional feedback note
+
+    Returns:
+        True if updated successfully
+    """
+    logger.info(f"Updating feedback for message {message_id} in session {session_id}")
+
+    try:
+        # Load all messages
+        messages = get_conversation_history(user_id, session_id)
+
+        # Find and update the target message
+        message_found = False
+        for msg in messages:
+            if msg.message_id == message_id:
+                msg.feedback_rating = feedback_rating
+                msg.feedback_note = feedback_note
+                msg.feedback_timestamp = datetime.utcnow().isoformat()
+                message_found = True
+                break
+
+        if not message_found:
+            logger.warning(f"Message {message_id} not found in session {session_id}")
+            return False
+
+        # Rewrite the entire JSONL file with updated messages
+        client = _get_storage_client()
+        bucket = client.bucket(CHAT_HISTORY_BUCKET)
+        blob_path = f"{CHAT_HISTORY_PATH}/{user_id}/{session_id}.jsonl"
+        blob = bucket.blob(blob_path)
+
+        # Build new JSONL content
+        new_content = "\n".join(json.dumps(msg.to_dict()) for msg in messages) + "\n"
+        blob.upload_from_string(new_content, content_type="application/jsonl")
+
+        logger.info(f"Feedback updated for message {message_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error updating message feedback: {e}", exc_info=True)
+        return False

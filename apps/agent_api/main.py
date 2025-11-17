@@ -39,7 +39,8 @@ from shared.chat_history import (
     get_session_metadata,
     create_new_session,
     delete_session,
-    update_session_title
+    update_session_title,
+    update_message_feedback
 )
 from shared.user_management import (
     create_user,
@@ -197,32 +198,68 @@ def process_youtube_video(source_id: str, url: str, language: str, translate: st
     time.sleep(2)  # Allow manifest entry to be written
 
     try:
-        from tools.processing.ingest_youtube import download_audio_with_fallback, upload_to_gcs, extract_video_id
+        from tools.processing.ingest_youtube import upload_to_gcs, extract_video_id
+        from tools.processing.youtube_downloader_client import (
+            download_youtube_via_external_service,
+            is_external_downloader_configured
+        )
         from tools.processing.ingest_video import process_video
         import tempfile
         import os
 
-        # Download and upload audio (pytubefix first, then yt-dlp fallback)
-        with tempfile.TemporaryDirectory() as tmpdir:
+        vid_id = extract_video_id(url)
+        
+        # Try external downloader service first (bypasses Cloud Run bot detection)
+        wav_local = None
+        tmpdir_to_cleanup = None
+        
+        if is_external_downloader_configured():
+            logger.info(f"Using external YouTube downloader service (non-cloud IP)...")
+            try:
+                wav_local, video_title = download_youtube_via_external_service(url, vid_id)
+                logger.info(f"✓ External download successful: {video_title}")
+                
+                # Update manifest with video title
+                update_manifest_entry(source_id, {"title": video_title})
+                
+            except Exception as ext_error:
+                logger.warning(f"External downloader failed: {ext_error}")
+                logger.info("Falling back to local download methods...")
+                
+                # Fallback: Try local download
+                from tools.processing.ingest_youtube import download_audio_with_fallback
+                tmpdir_obj = tempfile.TemporaryDirectory()
+                tmpdir_to_cleanup = tmpdir_obj
+                tmpdir = tmpdir_obj.name
+                wav_local = download_audio_with_fallback(url, tmpdir)
+        else:
+            logger.info("External downloader not configured, using local download...")
+            from tools.processing.ingest_youtube import download_audio_with_fallback
             logger.info(f"Downloading audio from YouTube: {url}")
+            tmpdir_obj = tempfile.TemporaryDirectory()
+            tmpdir_to_cleanup = tmpdir_obj
+            tmpdir = tmpdir_obj.name
             wav_local = download_audio_with_fallback(url, tmpdir)
 
-            # Upload to GCS
-            vid_id = extract_video_id(url)
-            source_bucket = os.getenv("SOURCE_BUCKET", "centef-rag-bucket").replace("gs://", "").strip("/")
-            dest_blob = f"data/youtube_{vid_id}.wav"
-            logger.info(f"Uploading audio to GCS...")
-            audio_gs = upload_to_gcs(wav_local, source_bucket, dest_blob)
+        # Upload to GCS
+        source_bucket = os.getenv("SOURCE_BUCKET", "centef-rag-bucket").replace("gs://", "").strip("/")
+        dest_blob = f"data/youtube_{vid_id}.wav"
+        logger.info(f"Uploading audio to GCS...")
+        audio_gs = upload_to_gcs(wav_local, source_bucket, dest_blob)
+        
+        # Clean up temporary directory if we created one
+        if tmpdir_to_cleanup:
+            tmpdir_to_cleanup.cleanup()
 
-            # Process with video pipeline
-            process_video(
-                video_gcs_uri=url,
-                source_id=source_id,
-                audio_gcs_uri=audio_gs,
-                language_code=language,
-                translate_to=translate,
-                window_seconds=30.0
-            )
+        # Process with video pipeline
+        process_video(
+            video_gcs_uri=url,
+            source_id=source_id,
+            audio_gcs_uri=audio_gs,
+            language_code=language,
+            translate_to=translate,
+            window_seconds=30.0
+        )
 
         logger.info(f"✅ YouTube processing complete for {source_id}")
 
@@ -392,7 +429,14 @@ def root():
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
-    return {"status": "healthy"}
+    from tools.processing.youtube_downloader_client import health_check_external_service
+    
+    youtube_service = health_check_external_service()
+    
+    return {
+        "status": "healthy",
+        "external_youtube_downloader": youtube_service
+    }
 
 
 @app.get("/manifest", response_model=List[ManifestEntryResponse])
@@ -1843,6 +1887,9 @@ class MessageResponse(BaseModel):
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     citations: List[str] = Field(default_factory=list)
     model_used: Optional[str] = None
+    feedback_rating: Optional[str] = None
+    feedback_note: Optional[str] = None
+    feedback_timestamp: Optional[str] = None
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -1914,7 +1961,9 @@ async def chat(
             query=request.query,
             summary_results=search_results.get('summaries', []),
             chunk_results=search_results.get('chunks', []),
-            temperature=request.temperature
+            temperature=request.temperature,
+            user_id=current_user.user_id,
+            session_id=session_id
         )
         
         # Extract token usage from synthesis result
@@ -2032,7 +2081,10 @@ async def get_history(
                 timestamp=msg.timestamp,
                 sources=msg.sources,
                 citations=msg.citations,
-                model_used=msg.model_used
+                model_used=msg.model_used,
+                feedback_rating=msg.feedback_rating,
+                feedback_note=msg.feedback_note,
+                feedback_timestamp=msg.feedback_timestamp
             )
             for msg in messages
         ]
@@ -2120,28 +2172,28 @@ async def update_session_title_endpoint(
 ):
     """
     Update the title of a conversation session.
-    
+
     Args:
         session_id: Session ID
         title: New title
         current_user: Authenticated user
-    
+
     Returns:
         Updated session
     """
     logger.info(f"PATCH /chat/sessions/{session_id}/title for user={current_user.user_id}")
-    
+
     try:
         session = update_session_title(current_user.user_id, session_id, title)
-        
+
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session {session_id} not found"
             )
-        
+
         return SessionResponse(**session.to_dict())
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2149,6 +2201,71 @@ async def update_session_title_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating session title: {str(e)}"
+        )
+
+
+class MessageFeedbackRequest(BaseModel):
+    """Request model for message feedback."""
+    feedback_rating: str  # "thumbs_up" or "thumbs_down"
+    feedback_note: Optional[str] = None
+
+
+@app.patch("/chat/messages/{message_id}/feedback")
+async def update_message_feedback_endpoint(
+    message_id: str,
+    session_id: str,
+    feedback: MessageFeedbackRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update feedback for a specific message.
+
+    Args:
+        message_id: Message ID
+        session_id: Session ID (query parameter)
+        feedback: Feedback rating and optional note
+        current_user: Authenticated user
+
+    Returns:
+        Success message
+    """
+    logger.info(f"PATCH /chat/messages/{message_id}/feedback for user={current_user.user_id}")
+
+    try:
+        # Validate feedback_rating
+        if feedback.feedback_rating not in ["thumbs_up", "thumbs_down"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="feedback_rating must be 'thumbs_up' or 'thumbs_down'"
+            )
+
+        success = update_message_feedback(
+            user_id=current_user.user_id,
+            session_id=session_id,
+            message_id=message_id,
+            feedback_rating=feedback.feedback_rating,
+            feedback_note=feedback.feedback_note
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Message {message_id} not found in session {session_id}"
+            )
+
+        return {
+            "message": "Feedback updated successfully",
+            "message_id": message_id,
+            "feedback_rating": feedback.feedback_rating
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating message feedback: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating message feedback: {str(e)}"
         )
 
 
