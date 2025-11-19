@@ -144,13 +144,205 @@ def smart_context_truncation(
     return truncated_summaries, truncated_chunks
 
 
+def detect_output_format(query: str) -> Dict[str, Any]:
+    """
+    Detect the desired output format and characteristics from the query.
+    
+    Recognizes requests for:
+    - Brief summaries, bullet points, overviews
+    - Tweets, social media posts
+    - Blog posts, articles, essays
+    - Newsletters, reports
+    - Outlines, presentations, interviews
+    - Protocols, procedures, guidelines
+    - Comprehensive analyses
+    
+    Args:
+        query: User's query
+    
+    Returns:
+        Dict with format characteristics: {
+            'format_type': str,
+            'length': str (brief/medium/long/comprehensive),
+            'structure': str (bullets/paragraphs/sections/outline),
+            'temperature': float,
+            'max_tokens': int,
+            'style': str (formal/casual/academic/creative)
+        }
+    """
+    query_lower = query.lower()
+    
+    # Initialize defaults
+    format_info = {
+        'format_type': 'general_answer',
+        'length': 'medium',
+        'structure': 'paragraphs',
+        'temperature': 0.2,
+        'max_tokens': 2048,
+        'style': 'formal'
+    }
+    
+    # Brief/Summary formats (200-500 tokens)
+    brief_keywords = [
+        'brief', 'summary', 'summarize', 'briefly', 'quick overview', 
+        'tldr', 'tl;dr', 'in short', 'key points', 'bullet points',
+        'main points', 'highlights'
+    ]
+    if any(keyword in query_lower for keyword in brief_keywords):
+        format_info.update({
+            'format_type': 'brief_summary',
+            'length': 'brief',
+            'structure': 'bullets',
+            'temperature': 0.15,
+            'max_tokens': 500,
+            'style': 'concise'
+        })
+        logger.info("Detected format: Brief Summary")
+        return format_info
+    
+    # Tweet/Social Media (50-280 characters worth, ~100 tokens)
+    social_keywords = [
+        'tweet', 'twitter post', 'social media post', 'linkedin post',
+        'facebook post', 'instagram caption', '280 characters'
+    ]
+    if any(keyword in query_lower for keyword in social_keywords):
+        format_info.update({
+            'format_type': 'social_media',
+            'length': 'brief',
+            'structure': 'single_paragraph',
+            'temperature': 0.4,
+            'max_tokens': 150,
+            'style': 'casual_engaging'
+        })
+        logger.info("Detected format: Social Media Post")
+        return format_info
+    
+    # Blog Post/Article (1000-2000 tokens)
+    blog_keywords = [
+        'blog post', 'article', 'write an article', 'blog about',
+        'essay', 'write about', 'detailed article', 'medium post'
+    ]
+    if any(keyword in query_lower for keyword in blog_keywords):
+        format_info.update({
+            'format_type': 'blog_post',
+            'length': 'long',
+            'structure': 'sections',
+            'temperature': 0.5,
+            'max_tokens': 2500,
+            'style': 'engaging_informative'
+        })
+        logger.info("Detected format: Blog Post/Article")
+        return format_info
+    
+    # Newsletter (800-1500 tokens)
+    newsletter_keywords = [
+        'newsletter', 'email newsletter', 'weekly update', 'monthly update',
+        'news brief', 'digest'
+    ]
+    if any(keyword in query_lower for keyword in newsletter_keywords):
+        format_info.update({
+            'format_type': 'newsletter',
+            'length': 'medium',
+            'structure': 'sections',
+            'temperature': 0.4,
+            'max_tokens': 1800,
+            'style': 'professional_friendly'
+        })
+        logger.info("Detected format: Newsletter")
+        return format_info
+    
+    # Outline/Presentation (500-1000 tokens)
+    outline_keywords = [
+        'outline', 'presentation outline', 'talk outline', 'speaking points',
+        'presentation', 'prepare a presentation', 'slide outline',
+        'interview prep', 'talking points', 'key topics'
+    ]
+    if any(keyword in query_lower for keyword in outline_keywords):
+        format_info.update({
+            'format_type': 'outline',
+            'length': 'medium',
+            'structure': 'hierarchical_bullets',
+            'temperature': 0.25,
+            'max_tokens': 1200,
+            'style': 'structured'
+        })
+        logger.info("Detected format: Outline/Presentation")
+        return format_info
+    
+    # Protocol/Procedure (800-1500 tokens)
+    protocol_keywords = [
+        'protocol', 'procedure', 'guidelines', 'step-by-step', 'how to',
+        'instructions', 'best practices', 'framework', 'methodology',
+        'process', 'workflow'
+    ]
+    if any(keyword in query_lower for keyword in protocol_keywords):
+        format_info.update({
+            'format_type': 'protocol',
+            'length': 'long',
+            'structure': 'numbered_steps',
+            'temperature': 0.15,
+            'max_tokens': 1800,
+            'style': 'precise_formal'
+        })
+        logger.info("Detected format: Protocol/Procedure")
+        return format_info
+    
+    # Comprehensive/In-depth (2000-4000 tokens)
+    comprehensive_keywords = [
+        'comprehensive', 'in-depth', 'detailed', 'thorough', 'complete analysis',
+        'full report', 'extensive', 'deep dive', 'exhaustive'
+    ]
+    if any(keyword in query_lower for keyword in comprehensive_keywords):
+        format_info.update({
+            'format_type': 'comprehensive_analysis',
+            'length': 'comprehensive',
+            'structure': 'sections_with_subsections',
+            'temperature': 0.3,
+            'max_tokens': 4000,
+            'style': 'academic_thorough'
+        })
+        logger.info("Detected format: Comprehensive Analysis")
+        return format_info
+    
+    # Report (1200-2000 tokens)
+    report_keywords = [
+        'report', 'write a report', 'formal report', 'research report',
+        'findings', 'assessment report'
+    ]
+    if any(keyword in query_lower for keyword in report_keywords):
+        format_info.update({
+            'format_type': 'report',
+            'length': 'long',
+            'structure': 'formal_sections',
+            'temperature': 0.2,
+            'max_tokens': 2200,
+            'style': 'formal_professional'
+        })
+        logger.info("Detected format: Report")
+        return format_info
+    
+    # Factual questions (400-800 tokens)
+    factual_keywords = ['what is', 'when did', 'who is', 'where is', 'define', 'definition']
+    if any(keyword in query_lower for keyword in factual_keywords):
+        format_info.update({
+            'format_type': 'factual_answer',
+            'length': 'medium',
+            'structure': 'paragraphs',
+            'temperature': 0.15,
+            'max_tokens': 800,
+            'style': 'clear_concise'
+        })
+        logger.info("Detected format: Factual Answer")
+        return format_info
+    
+    logger.info("Using default format: General Answer")
+    return format_info
+
+
 def adaptive_temperature(query: str) -> float:
     """
     Determine optimal temperature based on query type.
-    
-    - Factual queries (what, when, who): Lower temperature (0.1-0.2)
-    - Analytical queries (why, how): Medium temperature (0.3-0.5)
-    - Creative queries (compare, synthesize): Higher temperature (0.5-0.7)
+    Now delegates to detect_output_format for more nuanced detection.
     
     Args:
         query: User's query
@@ -158,49 +350,35 @@ def adaptive_temperature(query: str) -> float:
     Returns:
         Optimal temperature value
     """
-    query_lower = query.lower()
-    
-    # Factual question indicators
-    factual_keywords = ['what is', 'when did', 'who is', 'where is', 'define', 'definition']
-    if any(keyword in query_lower for keyword in factual_keywords):
-        logger.info("Detected factual query - using low temperature (0.15)")
-        return 0.15
-    
-    # Analytical question indicators
-    analytical_keywords = ['why', 'how does', 'explain', 'describe', 'analyze']
-    if any(keyword in query_lower for keyword in analytical_keywords):
-        logger.info("Detected analytical query - using medium temperature (0.35)")
-        return 0.35
-    
-    # Creative/synthesis indicators
-    creative_keywords = ['compare', 'contrast', 'synthesize', 'discuss', 'evaluate']
-    if any(keyword in query_lower for keyword in creative_keywords):
-        logger.info("Detected creative query - using higher temperature (0.5)")
-        return 0.5
-    
-    # Default: balanced temperature
-    logger.info("Using default temperature (0.2)")
-    return 0.2
+    format_info = detect_output_format(query)
+    return format_info['temperature']
 
 
 def build_optimized_synthesis_prompt(
     query: str,
     summary_results: List[Dict[str, Any]],
     chunk_results: List[Dict[str, Any]],
-    prioritize_citations: bool = True
+    prioritize_citations: bool = True,
+    format_info: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Build an optimized prompt with better structure and citation requirements.
+    Adapts prompt based on detected output format.
     
     Args:
         query: User's question
         summary_results: List of summary search results
         chunk_results: List of chunk search results
         prioritize_citations: Whether to emphasize citation requirements
+        format_info: Optional format information from detect_output_format()
     
     Returns:
         Formatted prompt string
     """
+    # Detect format if not provided
+    if format_info is None:
+        format_info = detect_output_format(query)
+    
     prompt_parts = [
         "You are an expert assistant for the CENTEF (Center for Research of Terror Financing) knowledge base.",
         "Your role is to provide accurate, comprehensive answers based on the provided documents.",
@@ -215,26 +393,125 @@ def build_optimized_synthesis_prompt(
         "",
     ]
     
-    if prioritize_citations:
+    # Add format-specific instructions
+    format_type = format_info.get('format_type', 'general_answer')
+    structure = format_info.get('structure', 'paragraphs')
+    style = format_info.get('style', 'formal')
+    
+    prompt_parts.append("OUTPUT FORMAT REQUIREMENTS:")
+    
+    if format_type == 'brief_summary':
         prompt_parts.extend([
-            "⚠️ CRITICAL CITATION REQUIREMENTS:",
-            "1. You MUST cite sources for ALL factual claims",
-            "2. Use format: [Document Title, Page X] or [Document Title] for summaries",
-            "3. Include AT LEAST 5 explicit citations throughout your answer",
-            "4. Place citations immediately after the relevant claim",
-            "5. End with '---CITATIONS---' section listing all cited sources",
-            "",
+            "- Provide a BRIEF summary with KEY POINTS only",
+            "- Use bullet points for clarity",
+            "- Keep it concise (3-5 main points)",
+            "- Each point should be 1-2 sentences maximum",
         ])
+    
+    elif format_type == 'social_media':
+        prompt_parts.extend([
+            "- Write a compelling SOCIAL MEDIA POST (tweet-length)",
+            "- Keep it under 280 characters if possible",
+            "- Make it engaging and shareable",
+            "- Use clear, accessible language",
+            "- Include 1-2 key hashtags if appropriate",
+        ])
+    
+    elif format_type == 'blog_post':
+        prompt_parts.extend([
+            "- Write a comprehensive BLOG POST or ARTICLE",
+            "- Structure with clear sections and headings",
+            "- Include an engaging introduction",
+            "- Develop key points with examples and details",
+            "- Conclude with key takeaways or implications",
+            "- Use a conversational yet informative tone",
+        ])
+    
+    elif format_type == 'newsletter':
+        prompt_parts.extend([
+            "- Create a NEWSLETTER-style update",
+            "- Start with a brief intro or context",
+            "- Use clear section headings",
+            "- Keep paragraphs short and scannable",
+            "- End with a call-to-action or next steps",
+            "- Professional but approachable tone",
+        ])
+    
+    elif format_type == 'outline':
+        prompt_parts.extend([
+            "- Provide a structured OUTLINE",
+            "- Use hierarchical bullet points (main topics → subtopics → details)",
+            "- Each main point should have 2-4 supporting sub-points",
+            "- Keep it organized and easy to follow",
+            "- Perfect for presentations or talks",
+        ])
+    
+    elif format_type == 'protocol':
+        prompt_parts.extend([
+            "- Write a clear PROTOCOL or PROCEDURE",
+            "- Use numbered steps for sequential actions",
+            "- Include any prerequisites or requirements",
+            "- Be precise and unambiguous",
+            "- Add warnings or notes where appropriate",
+            "- Formal, authoritative tone",
+        ])
+    
+    elif format_type == 'comprehensive_analysis':
+        prompt_parts.extend([
+            "- Provide a COMPREHENSIVE, IN-DEPTH analysis",
+            "- Structure with main sections and subsections",
+            "- Cover all relevant aspects thoroughly",
+            "- Include context, details, and implications",
+            "- Synthesize information from multiple sources",
+            "- Academic or professional depth",
+        ])
+    
+    elif format_type == 'report':
+        prompt_parts.extend([
+            "- Write a formal REPORT",
+            "- Use standard report structure (Executive Summary, Findings, Analysis, Conclusions)",
+            "- Present information objectively",
+            "- Include relevant data and evidence",
+            "- Professional, formal tone",
+        ])
+    
+    else:  # general_answer or factual_answer
+        prompt_parts.extend([
+            "- Provide a clear, well-structured answer",
+            "- Use paragraphs with logical flow",
+            "- Include relevant details and context",
+            "- Be thorough but concise",
+        ])
+    
+    prompt_parts.append("")
+    
+    # Citation requirements (adapt based on format and length)
+    if prioritize_citations:
+        min_citations = 3 if format_info.get('length') == 'brief' else 5
+        
+        prompt_parts.append("⚠️ CRITICAL CITATION REQUIREMENTS:")
+        prompt_parts.extend([
+            f"1. You MUST cite sources for ALL factual claims (minimum {min_citations} citations)",
+            "2. Use format: [Document Title, Page X] or [Document Title] for summaries",
+            "3. Place citations immediately after the relevant claim",
+        ])
+        
+        if format_type != 'social_media':  # Social media posts can skip formal citation section
+            prompt_parts.extend([
+                "4. End with '---CITATIONS---' section listing all cited sources",
+                "5. Format: CITED: Document Title (Page X) or (Summary)",
+            ])
+        
+        prompt_parts.append("")
     
     prompt_parts.extend([
         "ANSWER GUIDELINES:",
-        "1. Provide comprehensive, accurate information from the sources",
-        "2. Synthesize information across multiple sources when relevant",
-        "3. Use clear structure with sections/bullets for readability",
-        "4. Expand abbreviations on first use",
-        "5. Be specific with numbers, dates, and examples from sources",
+        "1. Use information from the provided sources below",
+        "2. Expand abbreviations on first use",
+        "3. Be accurate and evidence-based",
+        f"4. Match the requested format and style ({format_type})",
         "",
-        f"USER QUESTION: {query}",
+        f"USER REQUEST: {query}",
         "",
         "=" * 80,
         "DOCUMENT SUMMARIES:",
@@ -291,12 +568,13 @@ def build_optimized_synthesis_prompt(
     else:
         prompt_parts.append("(No detailed chunks available)")
     
-    if prioritize_citations:
+    # Final output format reminder
+    if format_type != 'social_media' and prioritize_citations:
         prompt_parts.append("\n" + "=" * 80)
         prompt_parts.append("REQUIRED OUTPUT FORMAT:")
         prompt_parts.append("=" * 80)
-        prompt_parts.append("1. Provide comprehensive answer with inline citations [Document Title, Page X]")
-        prompt_parts.append("2. Include AT LEAST 5 citations")
+        prompt_parts.append(f"1. Provide answer in {format_type.replace('_', ' ').title()} format")
+        prompt_parts.append(f"2. Include minimum {min_citations} inline citations [Document Title, Page X]")
         prompt_parts.append("3. End with:")
         prompt_parts.append("---CITATIONS---")
         prompt_parts.append("CITED: [List each source cited, format: Title (Page X) or (Summary)]")
@@ -310,7 +588,7 @@ def synthesize_answer_optimized(
     summary_results: List[Dict[str, Any]],
     chunk_results: List[Dict[str, Any]],
     temperature: Optional[float] = None,
-    max_output_tokens: int = 2048,
+    max_output_tokens: Optional[int] = None,
     enable_context_truncation: bool = True,
     enable_adaptive_temperature: bool = True,
     max_context_tokens: int = 24000,
@@ -319,13 +597,14 @@ def synthesize_answer_optimized(
 ) -> Dict[str, Any]:
     """
     Generate an optimized answer with context management and adaptive parameters.
+    Automatically detects desired output format from query.
     
     Args:
         query: User's question
         summary_results: Summary search results
         chunk_results: Chunk search results
-        temperature: Model temperature (None = use adaptive)
-        max_output_tokens: Maximum length of generated answer
+        temperature: Model temperature (None = use adaptive/format-based)
+        max_output_tokens: Maximum length of generated answer (None = use format-based)
         enable_context_truncation: Whether to truncate context to fit token limits
         enable_adaptive_temperature: Whether to use query-based temperature
         max_context_tokens: Maximum tokens for context (summaries + chunks)
@@ -333,10 +612,14 @@ def synthesize_answer_optimized(
         session_id: Optional session ID for tracking
     
     Returns:
-        Dictionary with answer text and metadata
+        Dictionary with answer text, citations, format_info, and metadata
     """
     logger.info(f"Optimized synthesis for query: {query}")
     logger.info(f"Input: {len(summary_results)} summaries, {len(chunk_results)} chunks")
+    
+    # Detect desired output format
+    format_info = detect_output_format(query)
+    logger.info(f"Detected format: {format_info['format_type']} (length: {format_info['length']}, structure: {format_info['structure']})")
     
     # Step 1: Context truncation (if enabled)
     if enable_context_truncation:
@@ -348,22 +631,29 @@ def synthesize_answer_optimized(
     
     # Step 2: Adaptive temperature (if enabled and not explicitly set)
     if temperature is None and enable_adaptive_temperature:
-        temperature = adaptive_temperature(query)
+        temperature = format_info.get('temperature', 0.2)
     elif temperature is None:
         temperature = 0.2
     
-    # Step 3: Build optimized prompt
+    # Step 3: Get format-specific max_output_tokens if not provided
+    if max_output_tokens is None:
+        max_output_tokens = format_info.get('max_tokens', 2048)
+    
+    logger.info(f"Using temperature={temperature}, max_tokens={max_output_tokens} for {format_info['format_type']}")
+    
+    # Step 4: Build optimized, format-aware prompt
     prompt = build_optimized_synthesis_prompt(
         query, 
         summary_results, 
         chunk_results,
-        prioritize_citations=True
+        prioritize_citations=True,
+        format_info=format_info
     )
     
     prompt_tokens = estimate_token_count(prompt)
     logger.info(f"Prompt tokens: ~{prompt_tokens}, Temperature: {temperature}")
     
-    # Step 4: Generate answer with fallback models
+    # Step 5: Generate answer with fallback models
     generation_config = GenerationConfig(
         temperature=temperature,
         max_output_tokens=max_output_tokens,
@@ -572,10 +862,13 @@ def synthesize_answer_optimized(
         "num_chunks_used": len(chunk_results),
         "model_used": model_used or "unknown",
         "temperature": temperature,
+        "format_info": format_info,  # Include detected format information
         "optimizations_applied": {
             "context_truncation": enable_context_truncation,
             "adaptive_temperature": enable_adaptive_temperature,
-            "estimated_prompt_tokens": prompt_tokens
+            "estimated_prompt_tokens": prompt_tokens,
+            "format_detected": format_info['format_type'],
+            "max_tokens_used": max_output_tokens
         }
     }
     
