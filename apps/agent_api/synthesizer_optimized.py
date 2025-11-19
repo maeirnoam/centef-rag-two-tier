@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from shared.llm_tracker import track_llm_call
 
 # Import existing synthesizer functions
-from synthesizer import (
+from apps.agent_api.synthesizer import (
     build_synthesis_prompt,
     parse_citations_from_answer,
     normalize_citation_labels,

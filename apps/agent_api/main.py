@@ -56,6 +56,9 @@ from shared.user_management import (
 )
 from apps.agent_api.retriever_vertex_search import search_two_tier
 from apps.agent_api.synthesizer import synthesize_answer
+# Optimized versions
+from apps.agent_api.retriever_optimized import search_two_tier_optimized, analyze_query_characteristics
+from apps.agent_api.synthesizer_optimized import synthesize_answer_optimized
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1855,6 +1858,14 @@ class ChatRequest(BaseModel):
     max_chunks: int = 8
     max_summaries: int = 3
     temperature: float = 0.2
+    # Optimization flags (enabled by default)
+    use_optimizations: bool = True  # Master toggle for all optimizations
+    enable_query_expansion: Optional[bool] = None  # Expand query with variations (auto-determined)
+    enable_reranking: Optional[bool] = None  # LLM-based relevance reranking (auto-determined)
+    enable_deduplication: Optional[bool] = None  # Remove similar/duplicate results (auto-determined)
+    enable_adaptive_limits: bool = True  # Dynamically adjust chunk/summary counts based on query
+    filter_logic: str = "OR"  # "OR" or "AND" for metadata filters
+    metadata_filters: Optional[Dict[str, Any]] = None  # Custom metadata filters
 
 
 class ChatResponse(BaseModel):
@@ -1865,6 +1876,8 @@ class ChatResponse(BaseModel):
     sources: List[Dict[str, Any]]
     explicit_citations: List[str]
     model_used: str
+    # Optimization metadata
+    optimization_metadata: Optional[Dict[str, Any]] = None  # Details about optimizations applied
 
 
 class SessionResponse(BaseModel):
@@ -1947,24 +1960,77 @@ async def chat(
         )
         save_message(user_message)
         
-        # Perform two-tier search
-        logger.info("Performing two-tier search...")
-        search_results = search_two_tier(
-            request.query,
-            max_chunk_results=request.max_chunks,
-            max_summary_results=request.max_summaries
-        )
+        # Initialize optimization metadata
+        optimization_metadata = {}
         
-        # Synthesize answer
-        logger.info("Synthesizing answer with Gemini...")
-        synthesis_result = synthesize_answer(
-            query=request.query,
-            summary_results=search_results.get('summaries', []),
-            chunk_results=search_results.get('chunks', []),
-            temperature=request.temperature,
-            user_id=current_user.user_id,
-            session_id=session_id
-        )
+        # Perform two-tier search (optimized or standard)
+        if request.use_optimizations:
+            logger.info("Performing OPTIMIZED two-tier search...")
+            
+            # Analyze query characteristics if adaptive limits are enabled
+            if request.enable_adaptive_limits:
+                query_analysis = analyze_query_characteristics(request.query)
+                optimization_metadata['query_analysis'] = query_analysis
+                logger.info(f"Query analysis: type={query_analysis['query_type']}, complexity={query_analysis['complexity']}, scope={query_analysis['scope']}")
+            
+            # Call optimized search
+            search_results = search_two_tier_optimized(
+                query=request.query,
+                max_chunk_results=request.max_chunks if not request.enable_adaptive_limits else None,
+                max_summary_results=request.max_summaries if not request.enable_adaptive_limits else None,
+                enable_query_expansion=request.enable_query_expansion,
+                enable_reranking=request.enable_reranking,
+                enable_deduplication=request.enable_deduplication,
+                use_adaptive_strategy=request.enable_adaptive_limits,
+                filter_logic=request.filter_logic
+            )
+            
+            # Extract optimization metadata from search results
+            if 'optimizations_applied' in search_results:
+                optimization_metadata['search_optimizations'] = search_results['optimizations_applied']
+            if 'adaptive_limits' in search_results:
+                optimization_metadata['adaptive_limits'] = search_results['adaptive_limits']
+            if 'metadata_filters' in search_results:
+                optimization_metadata['metadata_filters'] = search_results['metadata_filters']
+            
+            logger.info(f"Optimized search complete: {len(search_results.get('chunks', []))} chunks, {len(search_results.get('summaries', []))} summaries")
+        else:
+            logger.info("Performing standard two-tier search...")
+            search_results = search_two_tier(
+                request.query,
+                max_chunk_results=request.max_chunks,
+                max_summary_results=request.max_summaries
+            )
+        
+        # Synthesize answer (optimized or standard)
+        if request.use_optimizations:
+            logger.info("Synthesizing answer with OPTIMIZED synthesizer...")
+            synthesis_result = synthesize_answer_optimized(
+                query=request.query,
+                summary_results=search_results.get('summaries', []),
+                chunk_results=search_results.get('chunks', []),
+                temperature=request.temperature,
+                user_id=current_user.user_id,
+                session_id=session_id
+            )
+            
+            # Extract format detection metadata
+            if 'format_info' in synthesis_result:
+                optimization_metadata['format_detection'] = synthesis_result['format_info']
+            if 'optimizations_applied' in synthesis_result:
+                optimization_metadata['synthesis_optimizations'] = synthesis_result['optimizations_applied']
+                
+            logger.info(f"Optimized synthesis complete with format: {synthesis_result.get('format_info', {}).get('format_type', 'unknown')}")
+        else:
+            logger.info("Synthesizing answer with standard synthesizer...")
+            synthesis_result = synthesize_answer(
+                query=request.query,
+                summary_results=search_results.get('summaries', []),
+                chunk_results=search_results.get('chunks', []),
+                temperature=request.temperature,
+                user_id=current_user.user_id,
+                session_id=session_id
+            )
         
         # Extract token usage from synthesis result
         input_tokens = synthesis_result.get('input_tokens')
@@ -2006,7 +2072,8 @@ async def chat(
             answer=synthesis_result['answer'],
             sources=synthesis_result.get('sources', []),
             explicit_citations=synthesis_result.get('explicit_citations', []),
-            model_used=synthesis_result.get('model_used', 'unknown')
+            model_used=synthesis_result.get('model_used', 'unknown'),
+            optimization_metadata=optimization_metadata if request.use_optimizations else None
         )
         
     except Exception as e:
