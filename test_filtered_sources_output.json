@@ -1,0 +1,75 @@
+{
+  "message_id": "cd6aece5-5f63-4a5f-958c-ad3888395258",
+  "session_id": "32533cd3-2726-4ef8-8030-84c10ffc146a",
+  "answer": "Terrorist financing (TF) methods are diverse and adaptable, ranging from small-scale, dispersed fundraising to large-scale support networks [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2]. Understanding these methods is crucial for disrupting terrorist activities [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 1].\n\nKey methods used in terrorism financing include:\n*   **Fundraising through social media:** Terrorists exploit social media's anonymity and broad reach to solicit donations, often integrating electronic payments [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 1]. Donors may be unaware of the ultimate beneficiaries [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 1].\n*   **Exploitation of natural resources:** Terrorist groups, such as ISIL, derive substantial funding from exploiting natural resources, often linked to criminal activities in areas with weak governance [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 1].\n*   **Abuse of non-profit organizations:** Terrorists may exploit charities and non-profit organizations to raise and move funds [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 2].\n*   **Criminal activities:** A range of criminal activities, from petty crime to organized fraud and narcotics smuggling, serve as significant funding sources [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2].\n*   **Private donations:** Terrorist groups receive funding through private donations [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 2].\n*   **Self-financing:** Terrorists may finance their activities through employment or welfare payments, sometimes referred to as \"black-washing\" [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2].\n*   **New payment methods:** New payment products and services, including virtual currencies and prepaid cards, offer speed and global accessibility, making end-user identification difficult [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 1].\n*   **Physical cash transportation:** Terrorists use physical cash couriers to move funds [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2].\n*   **Alternative remittance systems (ARS):** Terrorists utilize alternative remittance systems to move funds [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2].\n\nThese funds are used for various purposes, including operations, propaganda, recruitment, training, salaries, and even social services [Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 2].\n",
+  "sources": [
+    {
+      "source_id": "faae6ce6-9f67-41c3-aeed-d59d74133cf4",
+      "title": "Emerging-Terrorist-Financing-Risks.pdf.coredownload (5)",
+      "filename": "Emerging-Terrorist-Financing-Risks.pdf.coredownload (5).pdf",
+      "source_uri": "gs://centef-rag-bucket/sources/faae6ce6-9f67-41c3-aeed-d59d74133cf4.pdf",
+      "authorized_url": "https://storage.cloud.google.com/centef-rag-bucket/sources/faae6ce6-9f67-41c3-aeed-d59d74133cf4.pdf",
+      "type": "summary",
+      "pages": []
+    },
+    {
+      "source_id": "d75d794e-c93c-4b94-9555-5aea94443c88",
+      "title": "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2)",
+      "filename": "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2).pdf",
+      "source_uri": "gs://centef-rag-bucket/sources/d75d794e-c93c-4b94-9555-5aea94443c88.pdf",
+      "authorized_url": "https://storage.cloud.google.com/centef-rag-bucket/sources/d75d794e-c93c-4b94-9555-5aea94443c88.pdf",
+      "type": "summary",
+      "pages": []
+    }
+  ],
+  "explicit_citations": [
+    "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2",
+    "Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 1",
+    "Emerging-Terrorist-Financing-Risks.pdf.coredownload (5), Page 2"
+  ],
+  "follow_up_questions": [
+    "What specific measures are being implemented to counter terrorist fundraising on social media platforms?",
+    "How does the exploitation of natural resources by terrorist groups differ across various geographic regions?",
+    "What are the key indicators that financial institutions should look for to detect potential terrorism financing activities?"
+  ],
+  "model_used": "gemini-2.0-flash-exp",
+  "optimization_metadata": {
+    "query_analysis": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "topic",
+          "terrorism_financing"
+        ]
+      ]
+    },
+    "search_optimizations": {
+      "query_expansion": false,
+      "reranking": true,
+      "deduplication": true,
+      "adaptive_strategy": true,
+      "metadata_filter": false,
+      "filter_logic": null,
+      "filter_expression": null
+    },
+    "format_detection": {
+      "format_type": "general_answer",
+      "length": "medium",
+      "structure": "paragraphs",
+      "temperature": 0.2,
+      "max_tokens": 2048,
+      "style": "formal"
+    },
+    "synthesis_optimizations": {
+      "context_truncation": true,
+      "adaptive_temperature": true,
+      "estimated_prompt_tokens": 1686,
+      "format_detected": "general_answer",
+      "max_tokens_used": 2048
+    }
+  }
+}

@@ -1875,6 +1875,7 @@ class ChatResponse(BaseModel):
     answer: str
     sources: List[Dict[str, Any]]
     explicit_citations: List[str]
+    follow_up_questions: Optional[List[str]] = None
     model_used: str
     # Optimization metadata
     optimization_metadata: Optional[Dict[str, Any]] = None  # Details about optimizations applied
@@ -2080,9 +2081,10 @@ async def chat(
         return ChatResponse(
             message_id=assistant_message_id,
             session_id=session_id,
-            answer=synthesis_result['answer'],
+            answer=synthesis_result.get('full_answer', synthesis_result['answer']),  # Use full_answer which includes citations section
             sources=synthesis_result.get('sources', []),
             explicit_citations=synthesis_result.get('explicit_citations', []),
+            follow_up_questions=synthesis_result.get('follow_up_questions', []),
             model_used=synthesis_result.get('model_used', 'unknown'),
             optimization_metadata=optimization_metadata if request.use_optimizations else None
         )

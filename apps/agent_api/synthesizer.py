@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.llm_tracker import track_llm_call
 from shared.chat_history import MessageRole
+from shared.manifest import ManifestEntry
 
 # Load environment variables
 load_dotenv()
@@ -105,21 +106,13 @@ def build_synthesis_prompt(
         prompt_parts.append("")
     
     prompt_parts.extend([
-        "CRITICAL CITATION REQUIREMENTS:",
-        "1. You MUST include at least 5 explicit inline citations in your answer",
-        "2. Use this format for citations: [Document Title, Page X] or [Document Title] for summaries",
-        "3. Cite specific sources when making claims or providing facts",
-        "4. At the end of your answer, include a '---CITATIONS---' section listing:",
-        "   - All documents you explicitly cited in brackets",
-        "   - Format: CITED: Document Title (Page X) or (Summary)",
-        "",
-        "INSTRUCTIONS:",
-        "1. Answer the user's question using the information from the provided summaries and chunks below",
-        "2. Include AT LEAST 5 explicit citations in your answer using the [Document, Page] format",
-        "3. If abbreviations like AML, CTF, CFT appear in the documents, use the full terms in your answer",
-        "4. Synthesize information across multiple sources when relevant",
-        "5. Structure your answer clearly with relevant sections if appropriate",
-        "6. End with the ---CITATIONS--- section listing each cited source",
+        "CITATION REQUIREMENTS:",
+        "1. Use information from the provided sources below",
+        "2. Cite specific sources when making claims using this format: [Document Title, Page X] or [Document Title, Timestamp X:XX] for videos",
+        "3. Place citations immediately after the relevant claim in square brackets",
+        "4. If abbreviations like AML, CTF, CFT appear in the documents, use the full terms in your answer",
+        "5. Synthesize information across multiple sources when relevant",
+        "6. Structure your answer clearly with relevant sections if appropriate",
         "",
         f"USER QUESTION: {query}",
         "",
@@ -174,15 +167,6 @@ def build_synthesis_prompt(
             prompt_parts.append("")
     else:
         prompt_parts.append("(No detailed chunks available)")
-    
-    prompt_parts.append("\n" + "=" * 80)
-    prompt_parts.append("ANSWER FORMAT:")
-    prompt_parts.append("=" * 80)
-    prompt_parts.append("Provide a comprehensive answer with AT LEAST 5 inline citations using [Document Title, Page X] format.")
-    prompt_parts.append("End your response with:")
-    prompt_parts.append("---CITATIONS---")
-    prompt_parts.append("CITED: [List each document you cited, with format: Document Title (Page X) or (Summary)]")
-    prompt_parts.append("")
     
     return "\n".join(prompt_parts)
 
@@ -388,40 +372,27 @@ def replace_inline_placeholder_labels(
     return BRACKET_CONTENT_PATTERN.sub(_sub, text)
 
 
-def parse_citations_from_answer(answer_text: str) -> tuple[str, List[str]]:
+def extract_inline_citations(answer_text: str) -> List[str]:
     """
-    Parse the answer to extract the main text and explicit citations.
+    Extract inline citations from answer text (e.g., [Document Title, Page X]).
     
     Args:
-        answer_text: Full answer from Gemini including citations section
+        answer_text: Answer text with inline citations
     
     Returns:
-        Tuple of (main_answer, list_of_citations)
-        Citations are in format "Document Title (Page X)" or "Document Title (Summary)"
+        List of unique citation strings found in the text
     """
-    # Split on the citations marker
-    if "---CITATIONS---" in answer_text:
-        parts = answer_text.split("---CITATIONS---")
-        main_answer = parts[0].strip()
-        citations_section = parts[1].strip() if len(parts) > 1 else ""
-        
-        # Extract citations from the citations section
-        citations = []
-        for line in citations_section.split('\n'):
-            line = line.strip()
-            if line.startswith("CITED:"):
-                # Remove "CITED:" prefix and parse
-                citation = line.replace("CITED:", "").strip()
-                if citation:
-                    citations.append(citation)
-            elif line and not line.startswith("---"):
-                # Also capture lines that might not have CITED: prefix
-                citations.append(line)
-        
-        return main_answer, citations
-    else:
-        # No citations section found, return full text
-        return answer_text, []
+    citations = []
+    # Match [Document Title, Page X] or [Document Title, Timestamp X:XX] patterns
+    citation_pattern = re.compile(r'\[([^\]]+)\]')
+    
+    for match in citation_pattern.finditer(answer_text):
+        citation = match.group(1).strip()
+        # Filter out citations that look like they have document content (too long)
+        if citation and len(citation) < 200 and citation not in citations:
+            citations.append(citation)
+    
+    return citations
 
 
 def synthesize_answer(
@@ -550,10 +521,7 @@ def synthesize_answer(
         )
         model_used = "fallback-none"
     
-    # Parse answer to extract main text and explicit citations
-    main_answer, explicit_citations = parse_citations_from_answer(answer_text)
-    logger.info(f"Parsed {len(explicit_citations)} explicit citations from answer")
-    
+    # Step 5: Build source map first
     # Extract source citations from results
     # Track sources with their page numbers/timestamps
     source_map = {}  # source_id -> source info with pages list
@@ -667,33 +635,40 @@ def synthesize_answer(
         
         all_sources.append(source_info)
     
-    # Separate cited sources from context-only sources
-    # For now, all retrieved sources are "context sources"
-    # The explicit_citations from the answer tell us which were actually cited
-
-    normalized_citations = normalize_citation_labels(
-        explicit_citations,
-        document_label_map,
-        chunk_label_map,
-    )
-    
-    main_answer = replace_inline_placeholder_labels(
-        main_answer,
-        document_label_map,
-        chunk_label_map,
-    )
-    sanitized_full_answer = replace_inline_placeholder_labels(
+    # Replace placeholder labels in answer
+    sanitized_answer = replace_inline_placeholder_labels(
         answer_text,
         document_label_map,
         chunk_label_map,
     )
-
+    
+    # Extract inline citations AFTER replacing placeholders (so we get real titles)
+    explicit_citations = extract_inline_citations(sanitized_answer)
+    logger.info(f"Found {len(explicit_citations)} inline citations in answer")
+    
+    # Filter sources to only those actually cited in the answer
+    cited_sources = []
+    for source in all_sources:
+        source_title = source['title'].lower()
+        # Check if this source appears in any inline citation
+        for citation in explicit_citations:
+            citation_lower = citation.lower()
+            if source_title in citation_lower or source['source_id'] in citation:
+                cited_sources.append(source)
+                break
+    
+    logger.info(f"Filtered {len(all_sources)} sources to {len(cited_sources)} cited sources")
+    
+    # Generate follow-up questions
+    follow_up_questions = generate_follow_up_questions(query, sanitized_answer, num_questions=3)
+    
     result = {
         "query": query,
-        "answer": main_answer,  # Main answer without citations section
-        "full_answer": sanitized_full_answer,  # Full answer including citations section
-        "explicit_citations": normalized_citations,  # List of citation strings
-        "sources": all_sources,  # All sources used for context
+        "answer": sanitized_answer,
+        "full_answer": sanitized_answer,
+        "explicit_citations": explicit_citations,
+        "sources": cited_sources,  # Only sources explicitly referenced in answer
+        "follow_up_questions": follow_up_questions,
         "num_summaries_used": len(summary_results),
         "num_chunks_used": len(chunk_results),
         "model_used": model_used or "unknown",
@@ -727,21 +702,49 @@ def generate_follow_up_questions(
     """
     logger.info(f"Generating {num_questions} follow-up questions")
     
-    # TODO: Use Gemini to generate follow-up questions
-    # prompt = f"""
-    # Based on this Q&A exchange, generate {num_questions} relevant follow-up questions:
-    # 
-    # Question: {query}
-    # Answer: {answer}
-    # 
-    # Generate {num_questions} natural follow-up questions that would help the user explore this topic further.
-    # Return only the questions, one per line.
-    # """
-    
-    # Placeholder response
-    logger.warning("Using placeholder follow-up questions")
-    return [
-        f"Can you provide more details about this topic?",
-        f"What are the key findings related to this?",
-        f"Are there any related documents I should review?"
-    ][:num_questions]
+    try:
+        # Initialize Vertex AI
+        vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
+        
+        prompt = f"""Based on this Q&A exchange, generate {num_questions} relevant follow-up questions that would help the user explore this topic further.
+
+Original Question: {query}
+
+Answer: {answer[:1000]}...
+
+Generate exactly {num_questions} natural, specific follow-up questions. Return ONLY the questions, one per line, without numbering or bullets."""
+        
+        model = GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(
+            prompt,
+            generation_config=GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=200
+            )
+        )
+        
+        questions_text = response.text.strip()
+        questions = [q.strip() for q in questions_text.split('\n') if q.strip() and not q.strip().startswith('#')]
+        
+        # Remove any numbering (1., 2., etc.)
+        cleaned_questions = []
+        for q in questions:
+            q = q.strip()
+            # Remove leading numbers/bullets
+            import re
+            q = re.sub(r'^[\d]+[\.\)\-]\s*', '', q)
+            q = re.sub(r'^[•\-*]\s*', '', q)
+            if q and len(q) > 10:  # Filter out too-short questions
+                cleaned_questions.append(q)
+        
+        result = cleaned_questions[:num_questions]
+        logger.info(f"Generated {len(result)} follow-up questions")
+        return result if result else ["What else would you like to know about this topic?"]
+        
+    except Exception as e:
+        logger.error(f"Error generating follow-up questions: {e}")
+        return [
+            "What specific aspect would you like to explore further?",
+            "Are there related topics you'd like to learn about?",
+            "Would you like more detailed information on any part of this answer?"
+        ][:num_questions]

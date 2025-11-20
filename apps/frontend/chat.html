@@ -339,6 +339,21 @@
                     `;
                 }
 
+                // Add follow-up questions
+                let followUpHtml = '';
+                if (data.follow_up_questions && data.follow_up_questions.length > 0) {
+                    followUpHtml = `
+                        <div class="follow-up-questions">
+                            <h4>Suggested questions:</h4>
+                            <div class="questions-list">
+                                ${data.follow_up_questions.map(q => `
+                                    <button class="follow-up-btn" onclick="askFollowUp('${escapeHtml(q).replace(/'/g, '\\\'')}')">${escapeHtml(q)}</button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
                 const newMessage = {
                     message_id: data.message_id,
                     session_id: currentSessionId,
@@ -356,6 +371,7 @@
                             ${renderFeedbackUI(newMessage)}
                         </div>
                         ${sourcesHtml}
+                        ${followUpHtml}
                     </div>
                 `;
 
@@ -623,6 +639,15 @@
                     noteInput.value = '';
                 }
             }
+        }
+
+        // Handle follow-up question click
+        function askFollowUp(question) {
+            const input = document.getElementById('chat-input');
+            input.value = question;
+            input.focus();
+            // Optionally auto-send
+            sendMessage();
         }
     </script>
 </body>

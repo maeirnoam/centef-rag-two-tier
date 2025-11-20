@@ -1,0 +1,25 @@
+{
+  "query": "What are the main methods used in terrorism financing and how do financial institutions detect them?",
+  "answer": "Terrorist financing involves diverse methods to raise, move, and use funds, adapting to varying organizational needs, from direct operational costs to broader infrastructure and propaganda [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline, Page 1]. These methods can be broadly categorized by the source of funds and the channels used to move them.\n\nTerrorist organizations raise funds through both legitimate and illicit means [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2]. Legitimate sources are often abused, such as charities, businesses, and even self-financing through employment or welfare payments, a practice known as \"black-washing\" [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2]. Illicit activities include petty crime, organized fraud, narcotics smuggling, and support from state sponsors or operations within safe havens [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2]. The Financial Action Task Force (FATF) notes that terrorist groups exhibit significant adaptability in acquiring funds [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline, Page 1].\n\nFunds are moved through various channels, including the formal financial sector, cash couriers, trade systems, and alternative remittance systems (ARS) [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline, Page 1]. Charities and non-profit organizations are also sometimes exploited to disguise the movement of funds [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline, Page 1]. Disrupting these financial flows is critical to constraining terrorist capabilities and preventing attacks [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2]. Financial institutions play a key role in detecting and preventing terrorist financing by implementing Anti-Money Laundering (AML) and Counter-Terrorism Financing (CTF) measures. These include Know Your Customer (KYC) protocols, transaction monitoring, and reporting suspicious activities [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2), Page 2]. Enhanced financial intelligence and private sector engagement are also crucial in strengthening global CTF efforts [FATF Terrorist Financing Typologies Report.pdf.coredownload.inline, Page 1].\n\n---CITATIONS---\nCITED SOURCES:\n- FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (Page 1)\n- FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2) (Page 2)\n\nFOR FURTHER READING:\n- None\n",
+  "sources_count": 2,
+  "sources": [
+    {
+      "source_id": "12e489d3-918a-4fef-a0ed-1bd766d33580",
+      "title": "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline",
+      "filename": "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline.pdf",
+      "source_uri": "gs://centef-rag-bucket/sources/12e489d3-918a-4fef-a0ed-1bd766d33580.pdf",
+      "authorized_url": "https://storage.cloud.google.com/centef-rag-bucket/sources/12e489d3-918a-4fef-a0ed-1bd766d33580.pdf",
+      "type": "summary",
+      "pages": []
+    },
+    {
+      "source_id": "d75d794e-c93c-4b94-9555-5aea94443c88",
+      "title": "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2)",
+      "filename": "FATF Terrorist Financing Typologies Report.pdf.coredownload.inline (2).pdf",
+      "source_uri": "gs://centef-rag-bucket/sources/d75d794e-c93c-4b94-9555-5aea94443c88.pdf",
+      "authorized_url": "https://storage.cloud.google.com/centef-rag-bucket/sources/d75d794e-c93c-4b94-9555-5aea94443c88.pdf",
+      "type": "summary",
+      "pages": []
+    }
+  ]
+}

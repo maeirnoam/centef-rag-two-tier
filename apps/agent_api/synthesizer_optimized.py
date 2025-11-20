@@ -23,8 +23,7 @@ from shared.chat_history import MessageRole
 # Import existing synthesizer functions
 from apps.agent_api.synthesizer import (
     build_synthesis_prompt,
-    parse_citations_from_answer,
-    normalize_citation_labels,
+    extract_inline_citations,
     replace_inline_placeholder_labels,
     resolve_source_uri,
     build_authorized_url,
@@ -508,21 +507,12 @@ def build_optimized_synthesis_prompt(
     
     # Citation requirements (adapt based on format and length)
     if prioritize_citations:
-        min_citations = 3 if format_info.get('length') == 'brief' else 5
-        
-        prompt_parts.append("⚠️ CRITICAL CITATION REQUIREMENTS:")
+        prompt_parts.append("CITATION REQUIREMENTS:")
         prompt_parts.extend([
-            f"1. You MUST cite sources for ALL factual claims (minimum {min_citations} citations)",
-            "2. Use format: [Document Title, Page X] or [Document Title] for summaries",
-            "3. Place citations immediately after the relevant claim",
+            "1. Use information from the provided sources below",
+            "2. Cite specific sources when making claims using format: [Document Title, Page X] or [Document Title, Timestamp X:XX] for videos",
+            "3. Place citations immediately after the relevant claim in square brackets",
         ])
-        
-        if format_type != 'social_media':  # Social media posts can skip formal citation section
-            prompt_parts.extend([
-                "4. End with '---CITATIONS---' section listing all cited sources",
-                "5. Format: CITED: Document Title (Page X) or (Summary)",
-            ])
-        
         prompt_parts.append("")
     
     prompt_parts.extend([
@@ -531,6 +521,8 @@ def build_optimized_synthesis_prompt(
         "2. Expand abbreviations on first use",
         "3. Be accurate and evidence-based",
         f"4. Match the requested format and style ({format_type})",
+        "5. Prioritize diversity in sources - cite from multiple different documents",
+        "6. Include video/audio sources when available and relevant",
         "",
         f"USER REQUEST: {query}",
         "",
@@ -588,18 +580,6 @@ def build_optimized_synthesis_prompt(
             prompt_parts.append("")
     else:
         prompt_parts.append("(No detailed chunks available)")
-    
-    # Final output format reminder
-    if format_type != 'social_media' and prioritize_citations:
-        prompt_parts.append("\n" + "=" * 80)
-        prompt_parts.append("REQUIRED OUTPUT FORMAT:")
-        prompt_parts.append("=" * 80)
-        prompt_parts.append(f"1. Provide answer in {format_type.replace('_', ' ').title()} format")
-        prompt_parts.append(f"2. Include minimum {min_citations} inline citations [Document Title, Page X]")
-        prompt_parts.append("3. End with:")
-        prompt_parts.append("---CITATIONS---")
-        prompt_parts.append("CITED: [List each source cited, format: Title (Page X) or (Summary)]")
-        prompt_parts.append("")
     
     return "\n".join(prompt_parts)
 
@@ -754,11 +734,7 @@ def synthesize_answer_optimized(
         )
         model_used = "fallback-none"
     
-    # Step 5: Parse citations and build source map
-    main_answer, explicit_citations = parse_citations_from_answer(answer_text)
-    logger.info(f"Parsed {len(explicit_citations)} explicit citations")
-    
-    # Build source map
+    # Step 5: Build source map first
     from shared.manifest import get_manifest_entry
     
     source_map = {}
@@ -859,31 +835,41 @@ def synthesize_answer_optimized(
             source_info['page_range'] = format_page_range(source_info['pages'])
         all_sources.append(source_info)
     
-    # Normalize citations
-    normalized_citations = normalize_citation_labels(
-        explicit_citations,
-        document_label_map,
-        chunk_label_map
-    )
-    
-    main_answer = replace_inline_placeholder_labels(
-        main_answer,
-        document_label_map,
-        chunk_label_map
-    )
-    
-    sanitized_full_answer = replace_inline_placeholder_labels(
+    # Replace placeholder labels in answer
+    sanitized_answer = replace_inline_placeholder_labels(
         answer_text,
         document_label_map,
         chunk_label_map
     )
     
+    # Extract inline citations AFTER replacing placeholders (so we get real titles)
+    explicit_citations = extract_inline_citations(sanitized_answer)
+    logger.info(f"Found {len(explicit_citations)} inline citations in answer")
+    
+    # Filter sources to only those actually cited in the answer
+    cited_sources = []
+    for source in all_sources:
+        source_title = source['title'].lower()
+        # Check if this source appears in any inline citation
+        for citation in explicit_citations:
+            citation_lower = citation.lower()
+            if source_title in citation_lower or source['source_id'] in citation:
+                cited_sources.append(source)
+                break
+    
+    logger.info(f"Filtered {len(all_sources)} sources to {len(cited_sources)} cited sources")
+    
+    # Generate follow-up questions
+    from .synthesizer import generate_follow_up_questions
+    follow_up_questions = generate_follow_up_questions(query, sanitized_answer, num_questions=3)
+    
     result = {
         "query": query,
-        "answer": main_answer,
-        "full_answer": sanitized_full_answer,
-        "explicit_citations": normalized_citations,
-        "sources": all_sources,
+        "answer": sanitized_answer,
+        "full_answer": sanitized_answer,
+        "explicit_citations": explicit_citations,
+        "sources": cited_sources,  # Only sources explicitly referenced in answer
+        "follow_up_questions": follow_up_questions,
         "num_summaries_used": len(summary_results),
         "num_chunks_used": len(chunk_results),
         "model_used": model_used or "unknown",
