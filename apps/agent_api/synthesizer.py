@@ -395,6 +395,85 @@ def extract_inline_citations(answer_text: str) -> List[str]:
     return citations
 
 
+def post_process_answer_and_sources(
+    answer_text: str,
+    all_sources: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Post-process answer to:
+    1. Extract inline citations
+    2. Match citations to sources
+    3. Number citations consistently
+    4. Replace inline citations with numbered references [1], [2], etc.
+    5. Return final answer and matched sources list
+    
+    Args:
+        answer_text: Answer with inline citations like [Title, Page X]
+        all_sources: All available sources
+    
+    Returns:
+        Dict with processed_answer, sources (ordered list), and citation_map
+    """
+    logger.info("Post-processing answer and sources...")
+    
+    # Extract all inline citations
+    inline_citations = extract_inline_citations(answer_text)
+    logger.info(f"Found {len(inline_citations)} inline citations")
+    
+    # Match each citation to a source
+    citation_to_source = {}
+    matched_sources = []
+    source_to_number = {}
+    
+    for citation in inline_citations:
+        citation_lower = citation.lower()
+        
+        # Try to match with sources
+        matched = False
+        for source in all_sources:
+            source_title = source['title'].lower()
+            source_id = source.get('source_id', '').lower()
+            
+            # Match by title or source_id
+            if source_title in citation_lower or citation_lower in source_title or source_id in citation_lower:
+                # Check if this source is already matched
+                if source['source_id'] not in source_to_number:
+                    # Add to matched sources list
+                    matched_sources.append(source)
+                    source_num = len(matched_sources)
+                    source_to_number[source['source_id']] = source_num
+                    citation_to_source[citation] = source_num
+                else:
+                    # Reuse existing number
+                    citation_to_source[citation] = source_to_number[source['source_id']]
+                
+                matched = True
+                break
+        
+        if not matched:
+            logger.warning(f"Could not match citation to source: {citation[:100]}")
+    
+    # Replace inline citations with numbered references
+    processed_answer = answer_text
+    
+    # Sort citations by length (longest first) to avoid partial replacements
+    sorted_citations = sorted(inline_citations, key=len, reverse=True)
+    
+    for citation in sorted_citations:
+        if citation in citation_to_source:
+            source_num = citation_to_source[citation]
+            # Replace [Full Citation] with [N]
+            processed_answer = processed_answer.replace(f"[{citation}]", f"[{source_num}]")
+    
+    logger.info(f"Matched {len(matched_sources)} sources with numbered citations")
+    
+    return {
+        "processed_answer": processed_answer,
+        "sources": matched_sources,
+        "citation_map": citation_to_source
+    }
+
+
 def synthesize_answer(
     query: str,
     summary_results: List[Dict[str, Any]],
@@ -642,32 +721,22 @@ def synthesize_answer(
         chunk_label_map,
     )
     
-    # Extract inline citations AFTER replacing placeholders (so we get real titles)
-    explicit_citations = extract_inline_citations(sanitized_answer)
-    logger.info(f"Found {len(explicit_citations)} inline citations in answer")
+    # Post-process answer: match citations to sources and number them
+    post_processed = post_process_answer_and_sources(sanitized_answer, all_sources)
+    final_answer = post_processed["processed_answer"]
+    cited_sources = post_processed["sources"]
     
-    # Filter sources to only those actually cited in the answer
-    cited_sources = []
-    for source in all_sources:
-        source_title = source['title'].lower()
-        # Check if this source appears in any inline citation
-        for citation in explicit_citations:
-            citation_lower = citation.lower()
-            if source_title in citation_lower or source['source_id'] in citation:
-                cited_sources.append(source)
-                break
-    
-    logger.info(f"Filtered {len(all_sources)} sources to {len(cited_sources)} cited sources")
+    logger.info(f"Post-processing: {len(all_sources)} sources → {len(cited_sources)} cited sources with numbered references")
     
     # Generate follow-up questions
-    follow_up_questions = generate_follow_up_questions(query, sanitized_answer, num_questions=3)
+    follow_up_questions = generate_follow_up_questions(query, final_answer, num_questions=3)
     
     result = {
         "query": query,
-        "answer": sanitized_answer,
-        "full_answer": sanitized_answer,
-        "explicit_citations": explicit_citations,
-        "sources": cited_sources,  # Only sources explicitly referenced in answer
+        "answer": final_answer,
+        "full_answer": final_answer,
+        "explicit_citations": list(post_processed["citation_map"].keys()),
+        "sources": cited_sources,  # Only sources explicitly referenced in answer, in citation order
         "follow_up_questions": follow_up_questions,
         "num_summaries_used": len(summary_results),
         "num_chunks_used": len(chunk_results),

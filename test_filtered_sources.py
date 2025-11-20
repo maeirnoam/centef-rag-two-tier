@@ -5,7 +5,7 @@ import requests
 import json
 
 API_URL = "http://localhost:8001"
-TEST_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0X3VzZXIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJleHAiOjE3NjM2Mzg1ODR9.5EuSPbVuTGPmuQFmMra_9weXtKdEow0zlr7BZb8rglE"
+TEST_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0X3VzZXIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJleHAiOjE3NjM2NDM0NTR9.03AbZLo_TFvZk6cTK5NdHTwPL_ZsCtnVF3LZT8mGTMc"
 
 def test_filtered_sources():
     """Test that only cited sources appear in the sources list"""

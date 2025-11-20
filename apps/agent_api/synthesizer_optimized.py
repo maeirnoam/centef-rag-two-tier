@@ -24,6 +24,7 @@ from shared.chat_history import MessageRole
 from apps.agent_api.synthesizer import (
     build_synthesis_prompt,
     extract_inline_citations,
+    post_process_answer_and_sources,
     replace_inline_placeholder_labels,
     resolve_source_uri,
     build_authorized_url,
@@ -842,32 +843,22 @@ def synthesize_answer_optimized(
         chunk_label_map
     )
     
-    # Extract inline citations AFTER replacing placeholders (so we get real titles)
-    explicit_citations = extract_inline_citations(sanitized_answer)
-    logger.info(f"Found {len(explicit_citations)} inline citations in answer")
+    # Post-process answer: extract citations, match to sources, number them
+    post_processed = post_process_answer_and_sources(sanitized_answer, all_sources)
+    final_answer = post_processed["processed_answer"]
+    cited_sources = post_processed["sources"]
     
-    # Filter sources to only those actually cited in the answer
-    cited_sources = []
-    for source in all_sources:
-        source_title = source['title'].lower()
-        # Check if this source appears in any inline citation
-        for citation in explicit_citations:
-            citation_lower = citation.lower()
-            if source_title in citation_lower or source['source_id'] in citation:
-                cited_sources.append(source)
-                break
-    
-    logger.info(f"Filtered {len(all_sources)} sources to {len(cited_sources)} cited sources")
+    logger.info(f"Post-processing: {len(all_sources)} sources → {len(cited_sources)} cited sources with numbered references")
     
     # Generate follow-up questions
     from .synthesizer import generate_follow_up_questions
-    follow_up_questions = generate_follow_up_questions(query, sanitized_answer, num_questions=3)
+    follow_up_questions = generate_follow_up_questions(query, final_answer, num_questions=3)
     
     result = {
         "query": query,
-        "answer": sanitized_answer,
-        "full_answer": sanitized_answer,
-        "explicit_citations": explicit_citations,
+        "answer": final_answer,
+        "full_answer": final_answer,
+        "explicit_citations": list(post_processed["citation_map"].keys()),
         "sources": cited_sources,  # Only sources explicitly referenced in answer
         "follow_up_questions": follow_up_questions,
         "num_summaries_used": len(summary_results),
