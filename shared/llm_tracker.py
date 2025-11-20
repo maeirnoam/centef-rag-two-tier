@@ -3,6 +3,8 @@ Centralized LLM Call Tracking System for CENTEF RAG Pipeline.
 
 This module provides comprehensive tracking of all LLM and AI API calls across the pipeline,
 logging to a master JSONL file for usage analysis, billing, and monitoring.
+
+Supports both local file storage and Google Cloud Storage (GCS).
 """
 
 import json
@@ -23,7 +25,13 @@ logger = logging.getLogger(__name__)
 # File lock for thread-safe JSONL writing
 _file_lock = Lock()
 
-# Master log file path
+# Configuration
+PROJECT_ID = os.getenv("PROJECT_ID")
+USE_GCS = os.getenv("LLM_TRACKING_USE_GCS", "false").lower() == "true"
+GCS_BUCKET = os.getenv("SOURCE_BUCKET", "centef-rag-bucket")  # Using SOURCE_BUCKET for consistency
+GCS_LOG_PATH = os.getenv("LLM_TRACKING_GCS_PATH", "logs/llm_tracking")
+
+# Local fallback paths
 MASTER_LOG_DIR = os.getenv("LLM_TRACKING_DIR", "./logs/llm_tracking")
 MASTER_LOG_FILE = os.getenv("LLM_TRACKING_FILE", "master_llm_calls.jsonl")
 
@@ -122,33 +130,78 @@ class LLMTracker:
             )
     """
 
-    def __init__(self, log_file: Optional[str] = None):
+    def __init__(self, log_file: Optional[str] = None, use_gcs: Optional[bool] = None):
         """
         Initialize the LLM tracker.
 
         Args:
             log_file: Optional custom log file path. Defaults to MASTER_LOG_FILE.
+            use_gcs: Override USE_GCS setting. If None, uses environment variable.
         """
-        self.log_dir = Path(MASTER_LOG_DIR)
-        self.log_file = Path(log_file) if log_file else self.log_dir / MASTER_LOG_FILE
+        self.use_gcs = use_gcs if use_gcs is not None else USE_GCS
+        self.gcs_client = None
+        self.gcs_bucket = None
 
-        # Create log directory if it doesn't exist
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+        if self.use_gcs:
+            # Initialize GCS client
+            try:
+                from google.cloud import storage
+                self.gcs_client = storage.Client(project=PROJECT_ID)
+                self.gcs_bucket = self.gcs_client.bucket(GCS_BUCKET)
 
-        logger.info(f"LLM Tracker initialized. Logging to: {self.log_file}")
+                # GCS path for logging
+                today = datetime.utcnow().strftime("%Y-%m")
+                self.gcs_blob_path = f"{GCS_LOG_PATH}/{today}_llm_calls.jsonl"
+
+                logger.info(f"LLM Tracker initialized. Logging to GCS: gs://{GCS_BUCKET}/{self.gcs_blob_path}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize GCS, falling back to local: {e}")
+                self.use_gcs = False
+
+        if not self.use_gcs:
+            # Local file storage
+            self.log_dir = Path(MASTER_LOG_DIR)
+            self.log_file = Path(log_file) if log_file else self.log_dir / MASTER_LOG_FILE
+
+            # Create log directory if it doesn't exist
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+
+            logger.info(f"LLM Tracker initialized. Logging to local file: {self.log_file}")
 
     def _write_record(self, record: LLMCallRecord) -> None:
         """
         Write a record to the JSONL file (thread-safe).
+        Supports both local files and GCS.
 
         Args:
             record: LLMCallRecord to write
         """
         try:
-            with _file_lock:
-                with open(self.log_file, 'a', encoding='utf-8') as f:
-                    json.dump(record.to_dict(), f, ensure_ascii=False)
-                    f.write('\n')
+            json_line = json.dumps(record.to_dict(), ensure_ascii=False) + '\n'
+
+            if self.use_gcs and self.gcs_bucket:
+                # Write to GCS (append mode)
+                with _file_lock:
+                    blob = self.gcs_bucket.blob(self.gcs_blob_path)
+
+                    # Download existing content if blob exists
+                    try:
+                        existing_content = blob.download_as_text()
+                    except Exception:
+                        existing_content = ""
+
+                    # Append new record
+                    new_content = existing_content + json_line
+
+                    # Upload back
+                    blob.upload_from_string(new_content, content_type='application/jsonl')
+
+            else:
+                # Write to local file
+                with _file_lock:
+                    with open(self.log_file, 'a', encoding='utf-8') as f:
+                        f.write(json_line)
+
         except Exception as e:
             logger.error(f"Failed to write LLM tracking record: {e}", exc_info=True)
 

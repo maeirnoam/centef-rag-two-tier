@@ -1,0 +1,41 @@
+{
+  "test_name": "protocol_request",
+  "query": "Create a step-by-step protocol for implementing parish programs",
+  "validations": [
+    {
+      "check": "format_detection",
+      "expected": "protocol",
+      "actual": "protocol",
+      "passed": true
+    }
+  ],
+  "query_analysis": {
+    "query_type": "procedural",
+    "complexity": "moderate",
+    "scope": "medium",
+    "needs_chunks": true,
+    "needs_summaries": false,
+    "filter_hints": []
+  },
+  "adaptive_limits": {
+    "max_chunks": 12,
+    "max_summaries": 3
+  },
+  "format_detection": {
+    "format_type": "protocol",
+    "length": "long",
+    "structure": "numbered_steps",
+    "temperature": 0.15,
+    "max_tokens": 1800,
+    "style": "precise_formal"
+  },
+  "search_strategy": {
+    "enable_query_expansion": false,
+    "enable_reranking": true,
+    "enable_deduplication": true,
+    "search_chunks": true,
+    "search_summaries": false,
+    "use_filters": false
+  },
+  "success": true
+}

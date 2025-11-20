@@ -18,6 +18,7 @@ from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.llm_tracker import track_llm_call
+from shared.chat_history import MessageRole
 
 # Import existing synthesizer functions
 from apps.agent_api.synthesizer import (
@@ -359,7 +360,8 @@ def build_optimized_synthesis_prompt(
     summary_results: List[Dict[str, Any]],
     chunk_results: List[Dict[str, Any]],
     prioritize_citations: bool = True,
-    format_info: Optional[Dict[str, Any]] = None
+    format_info: Optional[Dict[str, Any]] = None,
+    conversation_history: Optional[List[Any]] = None
 ) -> str:
     """
     Build an optimized prompt with better structure and citation requirements.
@@ -371,6 +373,7 @@ def build_optimized_synthesis_prompt(
         chunk_results: List of chunk search results
         prioritize_citations: Whether to emphasize citation requirements
         format_info: Optional format information from detect_output_format()
+        conversation_history: Optional list of previous ChatMessage objects
     
     Returns:
         Formatted prompt string
@@ -392,6 +395,24 @@ def build_optimized_synthesis_prompt(
         "- KYC = Know Your Customer",
         "",
     ]
+    
+    # Add conversation history if available
+    if conversation_history and len(conversation_history) > 0:
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("CONVERSATION HISTORY:")
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("")
+        prompt_parts.append("Previous messages in this conversation (for context only):")
+        prompt_parts.append("")
+        
+        for msg in conversation_history:
+            role_label = "USER" if msg.role == MessageRole.USER else "ASSISTANT"
+            prompt_parts.append(f"{role_label}: {msg.content}")
+            prompt_parts.append("")
+        
+        prompt_parts.append("Use this conversation history to provide contextually relevant answers.")
+        prompt_parts.append("If the current question refers to previous topics, acknowledge that context.")
+        prompt_parts.append("")
     
     # Add format-specific instructions
     format_type = format_info.get('format_type', 'general_answer')
@@ -593,7 +614,8 @@ def synthesize_answer_optimized(
     enable_adaptive_temperature: bool = True,
     max_context_tokens: int = 24000,
     user_id: Optional[str] = None,
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None,
+    conversation_history: Optional[List[Any]] = None
 ) -> Dict[str, Any]:
     """
     Generate an optimized answer with context management and adaptive parameters.
@@ -610,12 +632,15 @@ def synthesize_answer_optimized(
         max_context_tokens: Maximum tokens for context (summaries + chunks)
         user_id: Optional user ID for tracking
         session_id: Optional session ID for tracking
+        conversation_history: Optional list of previous ChatMessage objects for context
     
     Returns:
         Dictionary with answer text, citations, format_info, and metadata
     """
     logger.info(f"Optimized synthesis for query: {query}")
     logger.info(f"Input: {len(summary_results)} summaries, {len(chunk_results)} chunks")
+    if conversation_history:
+        logger.info(f"Including {len(conversation_history)} messages from conversation history")
     
     # Detect desired output format
     format_info = detect_output_format(query)
@@ -647,7 +672,8 @@ def synthesize_answer_optimized(
         summary_results, 
         chunk_results,
         prioritize_citations=True,
-        format_info=format_info
+        format_info=format_info,
+        conversation_history=conversation_history
     )
     
     prompt_tokens = estimate_token_count(prompt)

@@ -1,0 +1,346 @@
+{
+  "timestamp": "2025-11-19T15:31:27.177252",
+  "total_tests": 7,
+  "successful": 7,
+  "failed": 0,
+  "success_rate": 100.0,
+  "validations": {
+    "total": 6,
+    "passed": 4,
+    "failed": 2
+  },
+  "format_types": {
+    "factual_answer": 1,
+    "social_media": 1,
+    "blog_post": 1,
+    "protocol": 1,
+    "comprehensive_analysis": 1,
+    "general_answer": 2
+  },
+  "query_types": {
+    "factual": 1,
+    "exploratory": 4,
+    "procedural": 1,
+    "analytical": 1
+  },
+  "results": [
+    {
+      "test_name": "brief_factual",
+      "query": "What is CENTEF?",
+      "validations": [
+        {
+          "check": "format_detection",
+          "expected": "brief_summary",
+          "actual": "factual_answer",
+          "passed": false
+        }
+      ],
+      "query_analysis": {
+        "query_type": "factual",
+        "complexity": "simple",
+        "scope": "medium",
+        "needs_chunks": true,
+        "needs_summaries": false,
+        "filter_hints": []
+      },
+      "adaptive_limits": {
+        "max_chunks": 3,
+        "max_summaries": 2
+      },
+      "format_detection": {
+        "format_type": "factual_answer",
+        "length": "medium",
+        "structure": "paragraphs",
+        "temperature": 0.15,
+        "max_tokens": 800,
+        "style": "clear_concise"
+      },
+      "search_strategy": {
+        "enable_query_expansion": false,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": false,
+        "use_filters": false
+      },
+      "success": true
+    },
+    {
+      "test_name": "tweet_request",
+      "query": "Write a tweet about Pope Francis's latest encyclical",
+      "validations": [
+        {
+          "check": "format_detection",
+          "expected": "social_media",
+          "actual": "social_media",
+          "passed": true
+        }
+      ],
+      "query_analysis": {
+        "query_type": "exploratory",
+        "complexity": "moderate",
+        "scope": "medium",
+        "needs_chunks": true,
+        "needs_summaries": true,
+        "filter_hints": [
+          [
+            "topic",
+            "beneficial_ownership"
+          ]
+        ]
+      },
+      "adaptive_limits": {
+        "max_chunks": 10,
+        "max_summaries": 5
+      },
+      "format_detection": {
+        "format_type": "social_media",
+        "length": "brief",
+        "structure": "single_paragraph",
+        "temperature": 0.4,
+        "max_tokens": 150,
+        "style": "casual_engaging"
+      },
+      "search_strategy": {
+        "enable_query_expansion": true,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": true,
+        "use_filters": true
+      },
+      "success": true
+    },
+    {
+      "test_name": "blog_post",
+      "query": "Write a blog post about Catholic social teaching",
+      "validations": [
+        {
+          "check": "format_detection",
+          "expected": "blog_post",
+          "actual": "blog_post",
+          "passed": true
+        }
+      ],
+      "query_analysis": {
+        "query_type": "exploratory",
+        "complexity": "moderate",
+        "scope": "medium",
+        "needs_chunks": true,
+        "needs_summaries": true,
+        "filter_hints": [
+          [
+            "topic",
+            "beneficial_ownership"
+          ]
+        ]
+      },
+      "adaptive_limits": {
+        "max_chunks": 10,
+        "max_summaries": 5
+      },
+      "format_detection": {
+        "format_type": "blog_post",
+        "length": "long",
+        "structure": "sections",
+        "temperature": 0.5,
+        "max_tokens": 2500,
+        "style": "engaging_informative"
+      },
+      "search_strategy": {
+        "enable_query_expansion": true,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": true,
+        "use_filters": true
+      },
+      "success": true
+    },
+    {
+      "test_name": "protocol_request",
+      "query": "Create a step-by-step protocol for implementing parish programs",
+      "validations": [
+        {
+          "check": "format_detection",
+          "expected": "protocol",
+          "actual": "protocol",
+          "passed": true
+        }
+      ],
+      "query_analysis": {
+        "query_type": "procedural",
+        "complexity": "moderate",
+        "scope": "medium",
+        "needs_chunks": true,
+        "needs_summaries": false,
+        "filter_hints": []
+      },
+      "adaptive_limits": {
+        "max_chunks": 12,
+        "max_summaries": 3
+      },
+      "format_detection": {
+        "format_type": "protocol",
+        "length": "long",
+        "structure": "numbered_steps",
+        "temperature": 0.15,
+        "max_tokens": 1800,
+        "style": "precise_formal"
+      },
+      "search_strategy": {
+        "enable_query_expansion": false,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": false,
+        "use_filters": false
+      },
+      "success": true
+    },
+    {
+      "test_name": "comprehensive",
+      "query": "Provide a comprehensive analysis of Catholic social teaching across papal encyclicals",
+      "validations": [
+        {
+          "check": "format_detection",
+          "expected": "comprehensive_analysis",
+          "actual": "comprehensive_analysis",
+          "passed": true
+        }
+      ],
+      "query_analysis": {
+        "query_type": "analytical",
+        "complexity": "complex",
+        "scope": "broad",
+        "needs_chunks": true,
+        "needs_summaries": true,
+        "filter_hints": []
+      },
+      "adaptive_limits": {
+        "max_chunks": 20,
+        "max_summaries": 10
+      },
+      "format_detection": {
+        "format_type": "comprehensive_analysis",
+        "length": "comprehensive",
+        "structure": "sections_with_subsections",
+        "temperature": 0.3,
+        "max_tokens": 4000,
+        "style": "academic_thorough"
+      },
+      "search_strategy": {
+        "enable_query_expansion": true,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": true,
+        "use_filters": false
+      },
+      "success": true
+    },
+    {
+      "test_name": "social_justice_org_filter",
+      "query": "What does the Vatican say about social justice?",
+      "validations": [],
+      "query_analysis": {
+        "query_type": "exploratory",
+        "complexity": "moderate",
+        "scope": "medium",
+        "needs_chunks": true,
+        "needs_summaries": true,
+        "filter_hints": [
+          [
+            "topic",
+            "beneficial_ownership"
+          ]
+        ]
+      },
+      "adaptive_limits": {
+        "max_chunks": 10,
+        "max_summaries": 5
+      },
+      "format_detection": {
+        "format_type": "general_answer",
+        "length": "medium",
+        "structure": "paragraphs",
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "style": "formal"
+      },
+      "metadata_filter_or": "tags: ANY(\"beneficial_ownership\")",
+      "metadata_filter_and": "tags: ANY(\"beneficial_ownership\")",
+      "search_strategy": {
+        "enable_query_expansion": true,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": true,
+        "use_filters": true
+      },
+      "success": true
+    },
+    {
+      "test_name": "labor_rights_query",
+      "query": "Explain Catholic teaching on labor rights and unions",
+      "validations": [
+        {
+          "check": "topic_detection",
+          "expected": [
+            "labor rights",
+            "social justice"
+          ],
+          "actual": [
+            [
+              "organization",
+              "UN"
+            ],
+            [
+              "topic",
+              "beneficial_ownership"
+            ]
+          ],
+          "passed": false
+        }
+      ],
+      "query_analysis": {
+        "query_type": "exploratory",
+        "complexity": "moderate",
+        "scope": "medium",
+        "needs_chunks": true,
+        "needs_summaries": true,
+        "filter_hints": [
+          [
+            "organization",
+            "UN"
+          ],
+          [
+            "topic",
+            "beneficial_ownership"
+          ]
+        ]
+      },
+      "adaptive_limits": {
+        "max_chunks": 10,
+        "max_summaries": 5
+      },
+      "format_detection": {
+        "format_type": "general_answer",
+        "length": "medium",
+        "structure": "paragraphs",
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "style": "formal"
+      },
+      "search_strategy": {
+        "enable_query_expansion": true,
+        "enable_reranking": true,
+        "enable_deduplication": true,
+        "search_chunks": true,
+        "search_summaries": true,
+        "use_filters": true
+      },
+      "success": true
+    }
+  ]
+}

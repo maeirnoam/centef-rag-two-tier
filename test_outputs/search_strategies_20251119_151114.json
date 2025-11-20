@@ -1,0 +1,198 @@
+[
+  {
+    "test_name": "factual_simple",
+    "query": "What is a PEP?",
+    "query_type": "factual",
+    "complexity": "simple",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": false,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "factual_moderate",
+    "query": "What are the key requirements for customer due diligence?",
+    "query_type": "factual",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "procedural",
+    "query": "How to file a suspicious activity report?",
+    "query_type": "procedural",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": false,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "comparative",
+    "query": "Compare risk-based approach vs rules-based approach to AML",
+    "query_type": "comparative",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": true,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "analytical_complex",
+    "query": "Provide a comprehensive analysis of FATF effectiveness on terrorism financing",
+    "query_type": "analytical",
+    "complexity": "complex",
+    "strategy": {
+      "enable_query_expansion": true,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "exploratory",
+    "query": "Tell me about trade-based money laundering",
+    "query_type": "exploratory",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": true,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "org_filter_fatf",
+    "query": "FATF recommendations on virtual assets",
+    "query_type": "factual",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "org_filter_worldbank",
+    "query": "World Bank report on AML effectiveness",
+    "query_type": "factual",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "topic_crypto",
+    "query": "Cryptocurrency money laundering regulations",
+    "query_type": "factual",
+    "complexity": "simple",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "topic_sanctions",
+    "query": "Sanctions screening procedures for wire transfers",
+    "query_type": "procedural",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": false,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "topic_beneficial_ownership",
+    "query": "Ultimate beneficial owner identification requirements",
+    "query_type": "factual",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "topic_peps",
+    "query": "PEP screening and enhanced due diligence",
+    "query_type": "factual",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "multi_filter",
+    "query": "IMF assessment of cryptocurrency AML compliance",
+    "query_type": "analytical",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": true,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  },
+  {
+    "test_name": "complex_multi_filter",
+    "query": "FATF guidance on beneficial ownership for virtual asset service providers",
+    "query_type": "factual",
+    "complexity": "moderate",
+    "strategy": {
+      "enable_query_expansion": false,
+      "enable_reranking": true,
+      "enable_deduplication": true,
+      "search_chunks": true,
+      "search_summaries": true,
+      "use_filters": true
+    }
+  }
+]

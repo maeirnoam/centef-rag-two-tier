@@ -4,10 +4,11 @@ Runs on hstgr (non-cloud IP) to bypass YouTube bot detection.
 
 This service:
 1. Receives YouTube URL from Cloud Run
-2. Downloads audio using pytubefix
+2. Downloads audio using yt-dlp through Tor proxy
 3. Returns the audio file to Cloud Run
 
 No GCS credentials needed - Cloud Run handles storage.
+Requires: yt-dlp, ffmpeg, and Tor service running
 """
 import os
 import tempfile
@@ -36,12 +37,8 @@ app = FastAPI(
 # Security: API Key authentication
 API_KEY = os.getenv("YOUTUBE_DOWNLOADER_API_KEY", "change-me-in-production")
 
-# Import download functions (simplified - no GCS dependencies)
-try:
-    from pytubefix import YouTube
-except ImportError:
-    YouTube = None
-    logger.warning("pytubefix not installed")
+# We use yt-dlp via subprocess instead of importing it
+# No need to import pytubefix anymore
 
 
 class DownloadRequest(BaseModel):
@@ -58,7 +55,7 @@ class DownloadResponse(BaseModel):
     error: Optional[str] = None
 
 
-def verify_api_key(x_api_key: str = Header(...)) -> bool:
+def verify_api_key(x_api_key: str = Header(...)) -> str:
     """Verify API key from request header"""
     if x_api_key != API_KEY:
         raise HTTPException(
@@ -70,47 +67,83 @@ def verify_api_key(x_api_key: str = Header(...)) -> bool:
 
 def download_youtube_audio(youtube_url: str, out_dir: str) -> tuple[str, str]:
     """
-    Download YouTube audio using pytubefix.
+    Download YouTube audio using yt-dlp through Tor proxy.
     Returns: (wav_path, video_title)
     """
-    if YouTube is None:
-        raise RuntimeError("pytubefix not available. Install with: pip install pytubefix")
+    logger.info(f"Starting download with yt-dlp (via Tor): {youtube_url}")
 
-    logger.info(f"Starting download: {youtube_url}")
-    
     try:
-        yt = YouTube(str(youtube_url))
-        title = yt.title
+        import subprocess
+        import json
+        import glob
+
+        # Use venv's yt-dlp if available, fallback to system
+        yt_dlp_path = '/opt/youtube-downloader/venv/bin/yt-dlp'
+        if not os.path.exists(yt_dlp_path):
+            yt_dlp_path = 'yt-dlp'  # Fallback to system PATH
+
+        # First, get video info
+        logger.info("Fetching video metadata...")
+        info_cmd = [
+            yt_dlp_path,
+            '--proxy', 'socks5://127.0.0.1:9050',  # Use Tor
+            '--dump-json',
+            '--no-warnings',
+            youtube_url
+        ]
+
+        result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30)
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to get video info: {result.stderr}")
+
+        video_info = json.loads(result.stdout)
+        title = video_info.get('title', 'Unknown')
         logger.info(f"Video title: {title}")
 
-        # Get audio stream
-        audio_stream = yt.streams.filter(only_audio=True).first()
-        if not audio_stream:
-            raise RuntimeError("No audio stream available")
-
         # Download audio
-        logger.info(f"Downloading audio stream...")
-        audio_file = audio_stream.download(output_path=out_dir, filename="audio_raw")
-        logger.info(f"Download complete: {audio_file}")
+        audio_file = os.path.join(out_dir, "audio_raw.%(ext)s")
+        logger.info(f"Downloading audio...")
+
+        download_cmd = [
+            yt_dlp_path,
+            '--proxy', 'socks5://127.0.0.1:9050',  # Use Tor
+            '-f', 'bestaudio',
+            '-o', audio_file,
+            '--no-warnings',
+            youtube_url
+        ]
+
+        result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=7200)  # 2 hours for very long videos
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Download failed: {result.stderr}")
+
+        # Find the downloaded file
+        downloaded_files = glob.glob(os.path.join(out_dir, "audio_raw.*"))
+        if not downloaded_files:
+            raise RuntimeError("Download completed but file not found")
+
+        downloaded_file = downloaded_files[0]
+        logger.info(f"Download complete: {downloaded_file}")
 
         # Convert to 16kHz mono WAV with ffmpeg
         wav_path = os.path.join(out_dir, "audio.wav")
-        import subprocess
-        
+
         cmd = [
-            "ffmpeg", "-y", "-i", audio_file,
+            "ffmpeg", "-y", "-i", downloaded_file,
             "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
             wav_path
         ]
-        
+
         logger.info("Converting to WAV format...")
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         logger.info(f"✓ Conversion successful: {wav_path}")
-        
+
         # Get file size for logging
         file_size = os.path.getsize(wav_path)
         logger.info(f"WAV file size: {file_size:,} bytes ({file_size/1024/1024:.2f} MB)")
-        
+
         return wav_path, title
 
     except Exception as e:
@@ -124,24 +157,51 @@ async def root():
     return {
         "service": "YouTube Downloader",
         "status": "running",
-        "pytubefix_available": YouTube is not None
+        "method": "yt-dlp + Tor"
     }
 
 
 @app.get("/health")
 async def health():
     """Detailed health check"""
+    import subprocess
+
+    # Check yt-dlp (try venv first, then system PATH)
+    try:
+        yt_dlp_path = '/opt/youtube-downloader/venv/bin/yt-dlp'
+        if not os.path.exists(yt_dlp_path):
+            yt_dlp_path = 'yt-dlp'
+        result = subprocess.run([yt_dlp_path, '--version'], capture_output=True, timeout=5, text=True)
+        ytdlp_status = "available" if result.returncode == 0 else "missing"
+    except:
+        ytdlp_status = "missing"
+
+    # Check Tor
+    try:
+        result = subprocess.run(['systemctl', 'is-active', 'tor'], capture_output=True, timeout=5, text=True)
+        tor_status = "running" if result.returncode == 0 and result.stdout.strip() == 'active' else "not running"
+    except:
+        tor_status = "unknown"
+
+    # Check ffmpeg
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5, text=True)
+        ffmpeg_status = "available" if result.returncode == 0 else "missing"
+    except:
+        ffmpeg_status = "missing"
+
     return {
         "status": "healthy",
-        "pytubefix": "available" if YouTube is not None else "missing",
-        "ffmpeg": "available"  # TODO: Check ffmpeg availability
+        "ytdlp": ytdlp_status,
+        "tor": tor_status,
+        "ffmpeg": ffmpeg_status
     }
 
 
 @app.post("/download", response_model=DownloadResponse)
 async def download_youtube(
     request: DownloadRequest,
-    authorized: bool = Header(alias="X-API-Key", default=None)
+    x_api_key: str = Header(alias="X-API-Key", default=None)
 ):
     """
     Download YouTube video audio and return metadata.
@@ -157,7 +217,7 @@ async def download_youtube(
         DownloadResponse with success status and error if any
     """
     # Verify API key
-    verify_api_key(authorized)
+    verify_api_key(x_api_key)
     
     logger.info(f"=" * 60)
     logger.info(f"Download request received: {request.video_id}")

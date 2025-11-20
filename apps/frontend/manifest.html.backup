@@ -40,9 +40,9 @@
                 </div>
             </div>
             
-            <div style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div style="margin-bottom: 1rem;">
                 <label>
-                    Filter by status:
+                    Filter by status: 
                     <select id="status-filter" onchange="loadManifest()" style="padding: 0.5rem; margin-left: 0.5rem;">
                         <option value="">All</option>
                         <option value="pending_processing">Pending Processing</option>
@@ -51,14 +51,6 @@
                         <option value="pending_embedding">Pending Embedding</option>
                         <option value="embedded">Embedded</option>
                         <option value="error">Error</option>
-                    </select>
-                </label>
-                <label>
-                    Per page:
-                    <select id="page-size" onchange="changePageSize()" style="padding: 0.5rem; margin-left: 0.5rem;">
-                        <option value="10">10</option>
-                        <option value="20" selected>20</option>
-                        <option value="50">50</option>
                     </select>
                 </label>
             </div>
@@ -148,8 +140,6 @@
         displayUserInfo();
 
         let manifestData = [];
-        let currentPage = 1;
-        let pageSize = 20;
 
         // Date conversion helpers
         function formatDateForDisplay(isoDate) {
@@ -179,80 +169,33 @@
         async function loadManifest() {
             const statusFilter = document.getElementById('status-filter').value;
             const url = statusFilter ? `/manifest?status=${statusFilter}` : '/manifest';
-
+            
             document.getElementById('manifest-content').innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Loading manifest...</p>
                 </div>
             `;
-
+            
             try {
                 manifestData = await apiCall(url, 'GET');
-                currentPage = 1; // Reset to first page when loading new data
                 renderManifest(manifestData);
             } catch (error) {
                 console.error('Failed to load manifest:', error);
                 showError('Failed to load manifest');
             }
         }
-
-        // Change page size
-        function changePageSize() {
-            pageSize = parseInt(document.getElementById('page-size').value);
-            currentPage = 1; // Reset to first page
-            renderManifest(manifestData);
-        }
-
-        // Change page
-        function goToPage(page) {
-            currentPage = page;
-            renderManifest(manifestData);
-            // Scroll to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
+        
         // Render manifest table
         function renderManifest(data) {
             const content = document.getElementById('manifest-content');
-
+            
             if (data.length === 0) {
                 content.innerHTML = '<p style="color: var(--text-gray); text-align: center; padding: 2rem;">No documents found</p>';
                 return;
             }
-
-            // Calculate pagination
-            const totalPages = Math.ceil(data.length / pageSize);
-            const startIndex = (currentPage - 1) * pageSize;
-            const endIndex = Math.min(startIndex + pageSize, data.length);
-            const pageData = data.slice(startIndex, endIndex);
-
-            // Generate pagination controls
-            const paginationHTML = totalPages > 1 ? `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 0.75rem; background-color: var(--bg-light); border-radius: 0.375rem;">
-                    <div style="color: var(--text-gray);">
-                        Showing ${startIndex + 1}-${endIndex} of ${data.length} documents
-                    </div>
-                    <div style="display: flex; gap: 0.25rem;">
-                        <button class="btn btn-sm btn-secondary" onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>
-                            ««
-                        </button>
-                        <button class="btn btn-sm btn-secondary" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
-                            ‹
-                        </button>
-                        ${generatePageNumbers(currentPage, totalPages)}
-                        <button class="btn btn-sm btn-secondary" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
-                            ›
-                        </button>
-                        <button class="btn btn-sm btn-secondary" onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>
-                            »»
-                        </button>
-                    </div>
-                </div>
-            ` : '';
-
+            
             content.innerHTML = `
-                ${paginationHTML}
                 <table class="manifest-table">
                     <thead>
                         <tr>
@@ -265,7 +208,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${pageData.map(doc => `
+                        ${data.map(doc => `
                             <tr>
                                 <td><code>${escapeHtml(doc.source_id)}</code></td>
                                 <td>${escapeHtml(doc.title || 'Untitled')}</td>
@@ -369,38 +312,9 @@
                         `).join('')}
                     </tbody>
                 </table>
-                ${paginationHTML}
             `;
         }
-
-        // Generate page number buttons
-        function generatePageNumbers(current, total) {
-            const pages = [];
-            const maxButtons = 5;
-
-            let startPage = Math.max(1, current - Math.floor(maxButtons / 2));
-            let endPage = Math.min(total, startPage + maxButtons - 1);
-
-            if (endPage - startPage < maxButtons - 1) {
-                startPage = Math.max(1, endPage - maxButtons + 1);
-            }
-
-            for (let i = startPage; i <= endPage; i++) {
-                const isActive = i === current;
-                pages.push(`
-                    <button
-                        class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}"
-                        onclick="goToPage(${i})"
-                        ${isActive ? 'disabled' : ''}
-                    >
-                        ${i}
-                    </button>
-                `);
-            }
-
-            return pages.join('');
-        }
-
+        
         // Show pending approvals
         async function showPendingApprovals() {
             if (!isAdmin()) {
@@ -679,16 +593,6 @@ Type "DELETE" to confirm:`;
             font-size: 0.75rem;
             margin-right: 0.25rem;
             margin-bottom: 0.25rem;
-        }
-
-        /* Pagination styles */
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-sm {
-            min-width: 2rem;
         }
     </style>
 </body>

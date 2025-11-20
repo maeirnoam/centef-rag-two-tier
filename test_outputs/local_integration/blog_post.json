@@ -1,0 +1,46 @@
+{
+  "test_name": "blog_post",
+  "query": "Write a blog post about Catholic social teaching",
+  "validations": [
+    {
+      "check": "format_detection",
+      "expected": "blog_post",
+      "actual": "blog_post",
+      "passed": true
+    }
+  ],
+  "query_analysis": {
+    "query_type": "exploratory",
+    "complexity": "moderate",
+    "scope": "medium",
+    "needs_chunks": true,
+    "needs_summaries": true,
+    "filter_hints": [
+      [
+        "topic",
+        "beneficial_ownership"
+      ]
+    ]
+  },
+  "adaptive_limits": {
+    "max_chunks": 10,
+    "max_summaries": 5
+  },
+  "format_detection": {
+    "format_type": "blog_post",
+    "length": "long",
+    "structure": "sections",
+    "temperature": 0.5,
+    "max_tokens": 2500,
+    "style": "engaging_informative"
+  },
+  "search_strategy": {
+    "enable_query_expansion": true,
+    "enable_reranking": true,
+    "enable_deduplication": true,
+    "search_chunks": true,
+    "search_summaries": true,
+    "use_filters": true
+  },
+  "success": true
+}

@@ -13,9 +13,6 @@
                 <a href="https://centef.org/" target="_blank" class="nav-logo-link">
                     <img src="images/CENTEF_logo_new.svg" alt="CENTEF Logo" class="nav-logo">
                 </a>
-                <a href="chat.html" class="nav-logo-link">
-                    <img src="images/munir_logo_fixed.svg" alt="Munir Logo" class="nav-logo">
-                </a>
             </div>
             <div class="nav-links">
                 <a href="chat.html">Chat</a>
@@ -149,10 +146,18 @@
         }
         
         // Load chat history for a session
-        async function loadChatHistory(sessionId) {
+        async function loadChatHistory(sessionId, preserveScroll = false) {
             try {
+                const chatMessages = document.getElementById('chat-messages');
+                const scrollPosBefore = preserveScroll ? chatMessages.scrollTop : null;
+
                 const messages = await apiCall(`/chat/history/${sessionId}`, 'GET');
-                renderMessages(messages);
+                renderMessages(messages, preserveScroll);
+
+                // Restore scroll position if requested
+                if (preserveScroll && scrollPosBefore !== null) {
+                    chatMessages.scrollTop = scrollPosBefore;
+                }
             } catch (error) {
                 console.error('Failed to load chat history:', error);
                 showError('Failed to load chat history');
@@ -167,7 +172,7 @@
         }
 
         // Render messages
-        function renderMessages(messages) {
+        function renderMessages(messages, preserveScroll = false) {
             const chatMessages = document.getElementById('chat-messages');
 
             if (messages.length === 0) {
@@ -199,7 +204,7 @@
                 `;
                 return;
             }
-            
+
             chatMessages.innerHTML = messages.map(msg => {
                 if (msg.role === 'user') {
                     return `
@@ -229,9 +234,11 @@
                     `;
                 }
             }).join('');
-            
-            // Scroll to bottom
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Only scroll to bottom when loading a session, not when preserving scroll
+            if (!preserveScroll) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
         }
         
         // Send message
@@ -342,7 +349,7 @@
                     feedback_note: null
                 };
 
-                chatMessages.innerHTML += `
+                const assistantMessageHtml = `
                     <div class="chat-message assistant">
                         <div class="message-bubble">
                             ${formatAnswer(data.answer, data.sources)}
@@ -352,7 +359,12 @@
                     </div>
                 `;
 
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                const scrollBefore = chatMessages.scrollHeight;
+                chatMessages.innerHTML += assistantMessageHtml;
+
+                // Scroll to the start of the new assistant message
+                const newScrollPosition = scrollBefore;
+                chatMessages.scrollTop = newScrollPosition;
             } catch (error) {
                 // Clear loading interval
                 clearInterval(loadingInterval);
@@ -577,8 +589,8 @@
                 const response = await apiCall(`/chat/messages/${messageId}/feedback?session_id=${sessionId}`, 'PATCH', payload);
 
                 if (response) {
-                    // Reload chat history to update UI
-                    await loadChatHistory(sessionId);
+                    // Reload chat history to update UI, preserving scroll position
+                    await loadChatHistory(sessionId, true);
                 }
             } catch (error) {
                 console.error('Failed to submit feedback:', error);

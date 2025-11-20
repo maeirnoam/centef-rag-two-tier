@@ -18,6 +18,7 @@ from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.llm_tracker import track_llm_call
+from shared.chat_history import MessageRole
 
 # Load environment variables
 load_dotenv()
@@ -58,7 +59,8 @@ vertexai.init(project=PROJECT_ID, location=GENERATION_LOCATION)
 def build_synthesis_prompt(
     query: str,
     summary_results: List[Dict[str, Any]],
-    chunk_results: List[Dict[str, Any]]
+    chunk_results: List[Dict[str, Any]],
+    conversation_history: Optional[List[Any]] = None
 ) -> str:
     """
     Build a prompt for Gemini that includes query and retrieval results.
@@ -67,6 +69,7 @@ def build_synthesis_prompt(
         query: User's question
         summary_results: List of summary search results
         chunk_results: List of chunk search results
+        conversation_history: Optional list of previous ChatMessage objects
     
     Returns:
         Formatted prompt string
@@ -81,6 +84,27 @@ def build_synthesis_prompt(
         "- CTF/CFT = Counter-Terrorism Financing / Combating the Financing of Terrorism",
         "- FATF = Financial Action Task Force",
         "",
+    ]
+    
+    # Add conversation history if available
+    if conversation_history and len(conversation_history) > 0:
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("CONVERSATION HISTORY:")
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("")
+        prompt_parts.append("Previous messages in this conversation (for context only):")
+        prompt_parts.append("")
+        
+        for msg in conversation_history:
+            role_label = "USER" if msg.role == MessageRole.USER else "ASSISTANT"
+            prompt_parts.append(f"{role_label}: {msg.content}")
+            prompt_parts.append("")
+        
+        prompt_parts.append("Use this conversation history to provide contextually relevant answers.")
+        prompt_parts.append("If the current question refers to previous topics, acknowledge that context.")
+        prompt_parts.append("")
+    
+    prompt_parts.extend([
         "CRITICAL CITATION REQUIREMENTS:",
         "1. You MUST include at least 5 explicit inline citations in your answer",
         "2. Use this format for citations: [Document Title, Page X] or [Document Title] for summaries",
@@ -102,7 +126,7 @@ def build_synthesis_prompt(
         "=" * 80,
         "DOCUMENT SUMMARIES:",
         "=" * 80,
-    ]
+    ])
     
     # Add summaries
     if summary_results:
@@ -407,7 +431,8 @@ def synthesize_answer(
     temperature: float = 0.2,
     max_output_tokens: int = 2048,
     user_id: Optional[str] = None,
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None,
+    conversation_history: Optional[List[Any]] = None
 ) -> Dict[str, Any]:
     """
     Generate an answer using Gemini based on retrieval results.
@@ -420,15 +445,18 @@ def synthesize_answer(
         max_output_tokens: Maximum length of generated answer
         user_id: Optional user ID for tracking
         session_id: Optional session ID for tracking
+        conversation_history: Optional list of previous ChatMessage objects for context
 
     Returns:
         Dictionary with answer text and metadata
     """
     logger.info(f"Synthesizing answer for query: {query}")
     logger.info(f"Using {len(summary_results)} summaries and {len(chunk_results)} chunks")
+    if conversation_history:
+        logger.info(f"Including {len(conversation_history)} messages from conversation history")
 
-    # Build prompt
-    prompt = build_synthesis_prompt(query, summary_results, chunk_results)
+    # Build prompt with conversation history
+    prompt = build_synthesis_prompt(query, summary_results, chunk_results, conversation_history)
 
     logger.info(f"Prompt length: {len(prompt)} characters")
 

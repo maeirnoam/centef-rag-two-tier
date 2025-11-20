@@ -1,0 +1,22 @@
+[
+  {
+    "test_name": "factual_simple",
+    "query": "What is a PEP?",
+    "error": "503 Getting metadata from plugin failed with error: Reauthentication is needed. Please run `gcloud auth application-default login` to reauthenticate."
+  },
+  {
+    "test_name": "analytical_complex",
+    "query": "Provide a comprehensive analysis of FATF effectiveness on terrorism financing",
+    "error": "503 Getting metadata from plugin failed with error: Reauthentication is needed. Please run `gcloud auth application-default login` to reauthenticate."
+  },
+  {
+    "test_name": "org_filter_fatf",
+    "query": "FATF recommendations on virtual assets",
+    "error": "503 Getting metadata from plugin failed with error: Reauthentication is needed. Please run `gcloud auth application-default login` to reauthenticate."
+  },
+  {
+    "test_name": "multi_filter",
+    "query": "IMF assessment of cryptocurrency AML compliance",
+    "error": "503 Getting metadata from plugin failed with error: Reauthentication is needed. Please run `gcloud auth application-default login` to reauthenticate."
+  }
+]

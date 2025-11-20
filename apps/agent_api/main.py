@@ -2002,6 +2002,15 @@ async def chat(
                 max_summary_results=request.max_summaries
             )
         
+        # Get conversation history for context (up to 50 previous messages)
+        conversation_history = get_conversation_history(
+            user_id=current_user.user_id,
+            session_id=session_id,
+            limit=50
+        )
+        # Exclude the current user message we just saved
+        conversation_history = [msg for msg in conversation_history if msg.message_id != user_message_id]
+        
         # Synthesize answer (optimized or standard)
         if request.use_optimizations:
             logger.info("Synthesizing answer with OPTIMIZED synthesizer...")
@@ -2011,7 +2020,8 @@ async def chat(
                 chunk_results=search_results.get('chunks', []),
                 temperature=request.temperature,
                 user_id=current_user.user_id,
-                session_id=session_id
+                session_id=session_id,
+                conversation_history=conversation_history
             )
             
             # Extract format detection metadata
@@ -2029,7 +2039,8 @@ async def chat(
                 chunk_results=search_results.get('chunks', []),
                 temperature=request.temperature,
                 user_id=current_user.user_id,
-                session_id=session_id
+                session_id=session_id,
+                conversation_history=conversation_history
             )
         
         # Extract token usage from synthesis result

@@ -1,0 +1,41 @@
+{
+  "test_name": "social_justice_org_filter",
+  "query": "What does the Vatican say about social justice?",
+  "validations": [],
+  "query_analysis": {
+    "query_type": "exploratory",
+    "complexity": "moderate",
+    "scope": "medium",
+    "needs_chunks": true,
+    "needs_summaries": true,
+    "filter_hints": [
+      [
+        "topic",
+        "beneficial_ownership"
+      ]
+    ]
+  },
+  "adaptive_limits": {
+    "max_chunks": 10,
+    "max_summaries": 5
+  },
+  "format_detection": {
+    "format_type": "general_answer",
+    "length": "medium",
+    "structure": "paragraphs",
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "style": "formal"
+  },
+  "metadata_filter_or": "tags: ANY(\"beneficial_ownership\")",
+  "metadata_filter_and": "tags: ANY(\"beneficial_ownership\")",
+  "search_strategy": {
+    "enable_query_expansion": true,
+    "enable_reranking": true,
+    "enable_deduplication": true,
+    "search_chunks": true,
+    "search_summaries": true,
+    "use_filters": true
+  },
+  "success": true
+}

@@ -33,21 +33,21 @@ def search_chunks(
 ) -> List[Dict[str, Any]]:
     """
     Search the chunk datastore using Vertex AI Search.
-    
+
     Args:
         query: Search query string
         max_results: Maximum number of results to return
         filter_expression: Optional filter (e.g., "source_id: ANY('xyz')")
-    
+
     Returns:
         List of chunk results with content and metadata
     """
     logger.info(f"Searching chunks with query: {query}")
-    
+
     try:
         # Initialize Discovery Engine Search client
         client = discoveryengine.SearchServiceClient()
-        
+
         # Build serving config for chunks datastore
         serving_config = (
             f"projects/{PROJECT_ID}/"
@@ -56,9 +56,9 @@ def search_chunks(
             f"dataStores/{CHUNKS_DATASTORE_ID}/"
             f"servingConfigs/default_config"
         )
-        
+
         logger.info(f"Using chunks serving config: {serving_config}")
-        
+
         # Build search request
         request = discoveryengine.SearchRequest(
             serving_config=serving_config,
@@ -71,25 +71,25 @@ def search_chunks(
                 mode=discoveryengine.SearchRequest.SpellCorrectionSpec.Mode.AUTO
             ),
         )
-        
+
         if filter_expression:
             request.filter = filter_expression
             logger.info(f"Applied filter: {filter_expression}")
-        
+
         # Execute search
         response = client.search(request=request)
-        
+
         # Process results
         results = []
         for result in response.results:
             doc = result.document
-            
+
             # Convert struct_data to regular dict
             struct_data = dict(doc.struct_data) if doc.struct_data else {}
             page_number = struct_data.get("page_number")
             if page_number is None:
                 page_number = struct_data.get("page")
-            
+
             results.append({
                 "id": doc.id,
                 "content": struct_data.get("content", ""),
@@ -103,10 +103,10 @@ def search_chunks(
                 "score": getattr(result, 'relevance_score', 0.0),
                 "metadata": struct_data
             })
-        
+
         logger.info(f"Found {len(results)} chunk results from Vertex AI Search")
         return results
-        
+
     except Exception as e:
         logger.error(f"Error searching chunks: {e}", exc_info=True)
         raise

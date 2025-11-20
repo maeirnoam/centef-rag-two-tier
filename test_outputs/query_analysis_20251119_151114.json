@@ -1,0 +1,378 @@
+[
+  {
+    "test_name": "factual_simple",
+    "query": "What is a PEP?",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "simple",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": false,
+      "filter_hints": [
+        [
+          "topic",
+          "peps"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_type": "factual",
+      "expected_complexity": "simple",
+      "expected_expansion": false
+    },
+    "validations": [
+      "Type: factual ✓",
+      "Complexity: simple ✓"
+    ]
+  },
+  {
+    "test_name": "factual_moderate",
+    "query": "What are the key requirements for customer due diligence?",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "topic",
+          "customer_due_diligence"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_type": "factual",
+      "expected_complexity": "moderate"
+    },
+    "validations": [
+      "Type: factual ✓",
+      "Complexity: moderate ✓"
+    ]
+  },
+  {
+    "test_name": "procedural",
+    "query": "How to file a suspicious activity report?",
+    "characteristics": {
+      "query_type": "procedural",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": false,
+      "filter_hints": [
+        [
+          "topic",
+          "suspicious_activity_reporting"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_type": "procedural",
+      "expected_complexity": "moderate",
+      "expected_chunks_priority": true
+    },
+    "validations": [
+      "Type: procedural ✓",
+      "Complexity: moderate ✓"
+    ]
+  },
+  {
+    "test_name": "comparative",
+    "query": "Compare risk-based approach vs rules-based approach to AML",
+    "characteristics": {
+      "query_type": "comparative",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "topic",
+          "money_laundering"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_type": "comparative",
+      "expected_complexity": "moderate",
+      "expected_expansion": true
+    },
+    "validations": [
+      "Type: comparative ✓",
+      "Complexity: moderate ✓"
+    ]
+  },
+  {
+    "test_name": "analytical_complex",
+    "query": "Provide a comprehensive analysis of FATF effectiveness on terrorism financing",
+    "characteristics": {
+      "query_type": "analytical",
+      "complexity": "complex",
+      "scope": "broad",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "FATF"
+        ],
+        [
+          "topic",
+          "terrorism_financing"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_type": "analytical",
+      "expected_complexity": "complex",
+      "expected_expansion": true,
+      "expected_org_filter": "FATF",
+      "expected_topic_filter": "terrorism_financing"
+    },
+    "validations": [
+      "Type: analytical ✓",
+      "Complexity: complex ✓",
+      "Org filter: ['FATF'] ✓",
+      "Topic filter: ['terrorism_financing'] ✓"
+    ]
+  },
+  {
+    "test_name": "exploratory",
+    "query": "Tell me about trade-based money laundering",
+    "characteristics": {
+      "query_type": "exploratory",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "UN"
+        ],
+        [
+          "topic",
+          "beneficial_ownership"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_type": "exploratory",
+      "expected_topic_filter": "trade_based_money_laundering"
+    },
+    "validations": [
+      "Type: exploratory ✓",
+      "Topic filter: ['beneficial_ownership'] ✗ expected trade_based_money_laundering"
+    ]
+  },
+  {
+    "test_name": "org_filter_fatf",
+    "query": "FATF recommendations on virtual assets",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "FATF"
+        ],
+        [
+          "topic",
+          "virtual_assets"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_org_filter": "FATF",
+      "expected_topic_filter": "virtual_assets"
+    },
+    "validations": [
+      "Org filter: ['FATF'] ✓",
+      "Topic filter: ['virtual_assets'] ✓"
+    ]
+  },
+  {
+    "test_name": "org_filter_worldbank",
+    "query": "World Bank report on AML effectiveness",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "World Bank"
+        ],
+        [
+          "topic",
+          "money_laundering"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_org_filter": "World Bank"
+    },
+    "validations": [
+      "Org filter: ['World Bank'] ✓"
+    ]
+  },
+  {
+    "test_name": "topic_crypto",
+    "query": "Cryptocurrency money laundering regulations",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "simple",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "UN"
+        ],
+        [
+          "topic",
+          "virtual_assets"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_topic_filter": "virtual_assets"
+    },
+    "validations": [
+      "Topic filter: ['virtual_assets'] ✓"
+    ]
+  },
+  {
+    "test_name": "topic_sanctions",
+    "query": "Sanctions screening procedures for wire transfers",
+    "characteristics": {
+      "query_type": "procedural",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": false,
+      "filter_hints": [
+        [
+          "topic",
+          "sanctions"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_topic_filter": "sanctions"
+    },
+    "validations": [
+      "Topic filter: ['sanctions'] ✓"
+    ]
+  },
+  {
+    "test_name": "topic_beneficial_ownership",
+    "query": "Ultimate beneficial owner identification requirements",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "topic",
+          "beneficial_ownership"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_topic_filter": "beneficial_ownership"
+    },
+    "validations": [
+      "Topic filter: ['beneficial_ownership'] ✓"
+    ]
+  },
+  {
+    "test_name": "topic_peps",
+    "query": "PEP screening and enhanced due diligence",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "topic",
+          "enhanced_due_diligence"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_topic_filter": "peps"
+    },
+    "validations": [
+      "Topic filter: ['enhanced_due_diligence'] ✗ expected peps"
+    ]
+  },
+  {
+    "test_name": "multi_filter",
+    "query": "IMF assessment of cryptocurrency AML compliance",
+    "characteristics": {
+      "query_type": "analytical",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "IMF"
+        ],
+        [
+          "topic",
+          "virtual_assets"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_org_filter": "IMF",
+      "expected_topic_filter": "virtual_assets"
+    },
+    "validations": [
+      "Org filter: ['IMF'] ✓",
+      "Topic filter: ['virtual_assets'] ✓"
+    ]
+  },
+  {
+    "test_name": "complex_multi_filter",
+    "query": "FATF guidance on beneficial ownership for virtual asset service providers",
+    "characteristics": {
+      "query_type": "factual",
+      "complexity": "moderate",
+      "scope": "medium",
+      "needs_chunks": true,
+      "needs_summaries": true,
+      "filter_hints": [
+        [
+          "organization",
+          "FATF"
+        ],
+        [
+          "topic",
+          "virtual_assets"
+        ]
+      ]
+    },
+    "expected": {
+      "expected_org_filter": "FATF",
+      "expected_topic_filter": "beneficial_ownership"
+    },
+    "validations": [
+      "Org filter: ['FATF'] ✓",
+      "Topic filter: ['virtual_assets'] ✗ expected beneficial_ownership"
+    ]
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "test_name": "brief_factual",
+  "query": "What is CENTEF?",
+  "validations": [
+    {
+      "check": "format_detection",
+      "expected": "brief_summary",
+      "actual": "factual_answer",
+      "passed": false
+    }
+  ],
+  "query_analysis": {
+    "query_type": "factual",
+    "complexity": "simple",
+    "scope": "medium",
+    "needs_chunks": true,
+    "needs_summaries": false,
+    "filter_hints": []
+  },
+  "adaptive_limits": {
+    "max_chunks": 3,
+    "max_summaries": 2
+  },
+  "format_detection": {
+    "format_type": "factual_answer",
+    "length": "medium",
+    "structure": "paragraphs",
+    "temperature": 0.15,
+    "max_tokens": 800,
+    "style": "clear_concise"
+  },
+  "search_strategy": {
+    "enable_query_expansion": false,
+    "enable_reranking": true,
+    "enable_deduplication": true,
+    "search_chunks": true,
+    "search_summaries": false,
+    "use_filters": false
+  },
+  "success": true
+}

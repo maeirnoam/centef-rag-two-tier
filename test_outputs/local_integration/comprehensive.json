@@ -1,0 +1,41 @@
+{
+  "test_name": "comprehensive",
+  "query": "Provide a comprehensive analysis of Catholic social teaching across papal encyclicals",
+  "validations": [
+    {
+      "check": "format_detection",
+      "expected": "comprehensive_analysis",
+      "actual": "comprehensive_analysis",
+      "passed": true
+    }
+  ],
+  "query_analysis": {
+    "query_type": "analytical",
+    "complexity": "complex",
+    "scope": "broad",
+    "needs_chunks": true,
+    "needs_summaries": true,
+    "filter_hints": []
+  },
+  "adaptive_limits": {
+    "max_chunks": 20,
+    "max_summaries": 10
+  },
+  "format_detection": {
+    "format_type": "comprehensive_analysis",
+    "length": "comprehensive",
+    "structure": "sections_with_subsections",
+    "temperature": 0.3,
+    "max_tokens": 4000,
+    "style": "academic_thorough"
+  },
+  "search_strategy": {
+    "enable_query_expansion": true,
+    "enable_reranking": true,
+    "enable_deduplication": true,
+    "search_chunks": true,
+    "search_summaries": true,
+    "use_filters": false
+  },
+  "success": true
+}

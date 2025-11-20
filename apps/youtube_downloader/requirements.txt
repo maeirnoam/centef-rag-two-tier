@@ -6,11 +6,14 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 
-# YouTube download
-pytubefix
+# YouTube download (using yt-dlp instead of pytubefix for better reliability)
+yt-dlp
 
 # Note: ffmpeg must be installed on the system
 # Ubuntu/Debian: sudo apt-get install ffmpeg
 # CentOS/RHEL: sudo yum install ffmpeg
 # macOS: brew install ffmpeg
 # Windows: Download from https://ffmpeg.org/
+#
+# Note: Tor must be installed and running for proxy support
+# Ubuntu/Debian: sudo apt-get install tor && sudo systemctl start tor

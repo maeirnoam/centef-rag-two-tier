@@ -453,7 +453,7 @@ def upload_to_gcs(local_path: str, bucket_name: str, dest_path: str) -> str:
     client = storage.Client(project=PROJECT_ID)
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(dest_path)
-    blob.upload_from_filename(local_path)
+    blob.upload_from_filename(local_path, timeout=1800)
     logger.info(f"Uploaded to gs://{bucket_name}/{dest_path}")
     return f"gs://{bucket_name}/{dest_path}"
 
@@ -464,7 +464,7 @@ def main():
     parser.add_argument("url", help="YouTube URL to ingest")
     parser.add_argument("--bucket", help="GCS bucket to upload audio (default SOURCE_BUCKET)", default=SOURCE_BUCKET)
     parser.add_argument("--prefix", help="Destination prefix in bucket (default data)", default=SOURCE_DATA_PREFIX)
-    parser.add_argument("--language", default="ar-SA", help="Source language code for STT (default: ar-SA)")
+    parser.add_argument("--language", default="en", help="Source language code for STT (default: ar-SA)")
     parser.add_argument("--translate", default="en", help="Target translation language (default: en). Use 'none' to skip translation.")
     parser.add_argument("--window", type=float, default=30.0, help="Chunk window seconds (default 30)")
     args = parser.parse_args()
